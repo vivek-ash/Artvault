@@ -4,6 +4,22 @@ A full-stack MERN web application enabling artists to upload, showcase, and secu
 
 ![Tech Stack](https://img.shields.io/badge/React-Vite-blue) ![Backend](https://img.shields.io/badge/Node.js-Express-green) ![Database](https://img.shields.io/badge/MongoDB-Atlas-brightgreen) ![Payments](https://img.shields.io/badge/Razorpay-Test%20Mode-purple)
 
+## 🌐 Live Demo
+
+| Service | URL |
+|---------|-----|
+| **🎨 Frontend** | [https://client-five-psi-40.vercel.app](https://client-five-psi-40.vercel.app) |
+| **⚙️ Backend API** | [https://artvault-api-48h5.onrender.com](https://artvault-api-48h5.onrender.com/api/health) |
+
+> **Note:** Render free tier may cold-start (~30s) on first request.
+
+### Demo Credentials
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@artvault.com` | `Admin@123` |
+| Artist | `artist1@artvault.com` | `Artist@123` |
+| Buyer | `buyer1@artvault.com` | `Buyer@123` |
+
 ---
 
 ## ✨ Key Features
