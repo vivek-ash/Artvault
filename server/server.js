@@ -22,6 +22,7 @@ const orderRoutes = require('./routes/order.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const commissionRoutes = require('./routes/commission.routes');
 const adminRoutes = require('./routes/admin.routes');
+const wishlistRoutes = require('./routes/wishlist.routes');
 
 // Connect to database
 connectDB();
@@ -85,6 +86,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/commissions', commissionRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/wishlist', wishlistRoutes);
 
 // Error handler (must be after routes)
 app.use(errorHandler);

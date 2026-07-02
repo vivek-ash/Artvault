@@ -13,6 +13,7 @@ import {
 import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
 import { fetchMyOrders } from '../features/order/orderSlice';
+import { fetchWishlist, removeFromWishlist } from '../features/wishlist/wishlistSlice';
 import api from '../utils/api';
 
 const tabs = [
@@ -26,10 +27,12 @@ const BuyerDashboard = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((s) => s.auth);
   const { orders, isLoading } = useSelector((s) => s.order);
+  const { items: wishlistItems } = useSelector((s) => s.wishlist);
   const [activeTab, setActiveTab] = useState('purchases');
 
   useEffect(() => {
     dispatch(fetchMyOrders());
+    dispatch(fetchWishlist());
   }, [dispatch]);
 
   const completedOrders = orders.filter((o) => o.payment?.status === 'completed');
@@ -64,7 +67,7 @@ const BuyerDashboard = () => {
 
   const stats = [
     { label: 'Purchases', value: completedOrders.length, icon: HiShoppingBag },
-    { label: 'Wishlist', value: 0, icon: HiHeart },
+    { label: 'Wishlist', value: wishlistItems.length, icon: HiHeart },
     { label: 'Following', value: user?.following?.length || 0, icon: HiUserGroup },
   ];
 
@@ -199,6 +202,50 @@ const BuyerDashboard = () => {
                         Certificate
                       </button>
                     </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : activeTab === 'wishlist' && wishlistItems.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {wishlistItems.map((item) => (
+                <div
+                  key={item._id}
+                  className={`rounded-xl overflow-hidden border group ${isDark ? 'bg-gallery-darkCard border-gallery-darkBorder' : 'bg-gallery-lightCard border-gallery-lightBorder'}`}
+                >
+                  <Link to={`/artwork/${item.artwork?._id}`}>
+                    <div className="aspect-[4/3] overflow-hidden">
+                      <img
+                        src={item.artwork?.images?.thumbnail || item.artwork?.images?.preview || ''}
+                        alt={item.artwork?.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    </div>
+                  </Link>
+                  <div className="p-4">
+                    <Link to={`/artwork/${item.artwork?._id}`}>
+                      <h3 className={`font-display font-semibold text-sm truncate hover:text-gallery-accent transition-colors ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
+                        {item.artwork?.title}
+                      </h3>
+                    </Link>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className={`text-xs ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
+                        {item.artwork?.artist?.name}
+                      </span>
+                      <span className="text-gallery-accent font-semibold text-sm">
+                        ₹{Number(item.artwork?.price || 0).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        dispatch(removeFromWishlist(item.artwork?._id));
+                        toast.success('Removed from wishlist');
+                      }}
+                      className="mt-3 w-full text-xs text-red-400 hover:bg-red-500/10 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <HiHeart className="w-3.5 h-3.5" />
+                      Remove
+                    </button>
                   </div>
                 </div>
               ))}

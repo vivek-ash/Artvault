@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   HiHeart,
   HiEye,
@@ -17,6 +18,7 @@ import { useTheme } from '../context/ThemeContext';
 import { fetchArtwork, fetchRelatedArtworks, clearCurrentArtwork } from '../features/artwork/artworkSlice';
 import api from '../utils/api';
 import useRazorpay from '../hooks/useRazorpay';
+import { addToWishlist, removeFromWishlist, checkWishlist } from '../features/wishlist/wishlistSlice';
 
 const ArtworkDetail = () => {
   const { id } = useParams();
@@ -24,14 +26,20 @@ const ArtworkDetail = () => {
   const dispatch = useDispatch();
   const { currentArtwork: artwork, relatedArtworks, isLoading } = useSelector((s) => s.artwork);
   const { isAuthenticated, user } = useSelector((s) => s.auth);
+  const { wishlistedIds } = useSelector((s) => s.wishlist);
   const { initiatePayment } = useRazorpay();
   const navigate = useNavigate();
+  const isWishlisted = wishlistedIds[id] || false;
 
   useEffect(() => {
     dispatch(fetchArtwork(id));
     dispatch(fetchRelatedArtworks(id));
     // Increment view count
     api.post(`/api/artworks/${id}/view`).catch(() => {});
+    // Check wishlist status
+    if (isAuthenticated) {
+      dispatch(checkWishlist(id));
+    }
 
     return () => {
       dispatch(clearCurrentArtwork());
@@ -196,9 +204,21 @@ const ArtworkDetail = () => {
                 <HiShoppingCart className="w-5 h-5" />
                 {artwork.saleType === 'auction' ? 'Place Bid' : 'Buy Now'}
               </button>
-              <button className="btn-secondary w-full flex items-center justify-center gap-2">
-                <HiHeart className="w-5 h-5" />
-                Add to Wishlist
+              <button
+                onClick={() => {
+                  if (!isAuthenticated) return navigate('/login');
+                  if (isWishlisted) {
+                    dispatch(removeFromWishlist(id));
+                    toast.success('Removed from wishlist');
+                  } else {
+                    dispatch(addToWishlist(id));
+                    toast.success('Added to wishlist ❤️');
+                  }
+                }}
+                className={`btn-secondary w-full flex items-center justify-center gap-2 ${isWishlisted ? 'border-red-500/50 text-red-400' : ''}`}
+              >
+                <HiHeart className={`w-5 h-5 ${isWishlisted ? 'fill-red-400 text-red-400' : ''}`} />
+                {isWishlisted ? 'In Wishlist' : 'Add to Wishlist'}
               </button>
             </div>
 
