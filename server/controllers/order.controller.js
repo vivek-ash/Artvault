@@ -4,6 +4,7 @@ const Order = require('../models/Order');
 const Artwork = require('../models/Artwork');
 const Notification = require('../models/Notification');
 const ErrorResponse = require('../utils/ErrorResponse');
+const { sendPurchaseEmail, sendSaleNotificationEmail } = require('../utils/email');
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -147,6 +148,25 @@ exports.verifyPayment = async (req, res, next) => {
       success: true,
       data: populatedOrder,
     });
+
+    // Send emails (non-blocking, after response)
+    if (populatedOrder.buyer?.email) {
+      sendPurchaseEmail(
+        populatedOrder.buyer.email,
+        populatedOrder.buyer.name,
+        populatedOrder.artwork?.title || 'Artwork',
+        populatedOrder.amount,
+        populatedOrder.certificateId
+      );
+    }
+    if (populatedOrder.artist?.email) {
+      sendSaleNotificationEmail(
+        populatedOrder.artist.email,
+        populatedOrder.artist.name,
+        populatedOrder.artwork?.title || 'Artwork',
+        populatedOrder.artistEarnings || populatedOrder.amount
+      );
+    }
   } catch (error) {
     next(error);
   }

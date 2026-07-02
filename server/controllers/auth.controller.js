@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const ErrorResponse = require('../utils/ErrorResponse');
+const { sendWelcomeEmail } = require('../utils/email');
 
 // Helper: send JWT token in httpOnly cookie
 const sendTokenResponse = (user, statusCode, res) => {
@@ -54,6 +55,9 @@ exports.register = async (req, res, next) => {
       password,
       role: role || 'buyer',
     });
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail(user.email, user.name, user.role);
 
     sendTokenResponse(user, 201, res);
   } catch (err) {
