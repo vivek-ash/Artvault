@@ -8,6 +8,7 @@ export const registerUser = createAsyncThunk(
   async ({ name, email, password, role }, { rejectWithValue }) => {
     try {
       const { data } = await api.post('/api/auth/register', { name, email, password, role });
+      if (data.token) localStorage.setItem('artvault_token', data.token);
       return data.user;
     } catch (error) {
       return rejectWithValue(
@@ -22,6 +23,7 @@ export const loginUser = createAsyncThunk(
   async ({ email, password }, { rejectWithValue }) => {
     try {
       const { data } = await api.post('/api/auth/login', { email, password });
+      if (data.token) localStorage.setItem('artvault_token', data.token);
       return data.user;
     } catch (error) {
       return rejectWithValue(
@@ -36,6 +38,7 @@ export const logoutUser = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       await api.post('/api/auth/logout');
+      localStorage.removeItem('artvault_token');
       return null;
     } catch (error) {
       return rejectWithValue(
@@ -52,6 +55,8 @@ export const getMe = createAsyncThunk(
       const { data } = await api.get('/api/auth/me');
       return data.user;
     } catch (error) {
+      // No valid session — clear any stale token
+      localStorage.removeItem('artvault_token');
       return rejectWithValue(
         error.response?.data?.error || error.message || 'Session expired'
       );

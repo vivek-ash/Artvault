@@ -2,7 +2,7 @@ const User = require('../models/User');
 const ErrorResponse = require('../utils/ErrorResponse');
 const { sendWelcomeEmail } = require('../utils/email');
 
-// Helper: send JWT token in httpOnly cookie
+// Helper: send JWT token in httpOnly cookie + response body
 const sendTokenResponse = (user, statusCode, res) => {
   const token = user.getSignedJwtToken();
 
@@ -21,6 +21,7 @@ const sendTokenResponse = (user, statusCode, res) => {
     .cookie('token', token, options)
     .json({
       success: true,
+      token, // Also send in body for cross-domain (Bearer auth)
       user: userData,
     });
 };

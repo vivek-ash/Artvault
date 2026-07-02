@@ -8,15 +8,27 @@ const api = axios.create({
   },
 });
 
+// Request interceptor — attach Bearer token for cross-domain auth
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('artvault_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     const message = error.response?.data?.error || error.message || 'Something went wrong';
 
-    // If 401 unauthorized, could dispatch logout action
+    // If 401 unauthorized, clear stored token
     if (error.response?.status === 401) {
-      // Will be handled by components
+      localStorage.removeItem('artvault_token');
     }
 
     return Promise.reject(error);
