@@ -13,13 +13,6 @@ A full-stack MERN web application enabling artists to upload, showcase, and secu
 
 > **Note:** Render free tier may cold-start (~30s) on first request.
 
-### Demo Credentials
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | `admin@artvault.com` | `Admin@123` |
-| Artist | `artist1@artvault.com` | `Artist@123` |
-| Buyer | `buyer1@artvault.com` | `Buyer@123` |
-
 ---
 
 ## ✨ Key Features
