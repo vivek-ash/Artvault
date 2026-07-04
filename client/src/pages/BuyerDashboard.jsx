@@ -1,280 +1,283 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import {
-  HiShoppingBag,
-  HiHeart,
-  HiUserGroup,
-  HiArrowRight,
-  HiArrowDownTray,
-  HiDocumentText,
-} from 'react-icons/hi2';
+import { HiShoppingBag, HiHeart, HiUserGroup, HiArrowDownTray, HiDocumentText, HiTrash, HiChatBubbleLeftEllipsis } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
-import { fetchMyOrders } from '../features/order/orderSlice';
+import { fetchMyOrders, getDownloadLink } from '../features/order/orderSlice';
 import { fetchWishlist, removeFromWishlist } from '../features/wishlist/wishlistSlice';
 import api from '../utils/api';
-
-const tabs = [
-  { id: 'purchases', label: 'Purchases', icon: HiShoppingBag },
-  { id: 'wishlist', label: 'Wishlist', icon: HiHeart },
-  { id: 'following', label: 'Following', icon: HiUserGroup },
-];
+import { PageTransition, Tabs, Badge, Avatar, EmptyState, StaggerContainer, StaggerItem, StudioSketchpad, CreativeAura } from '../components/ui';
+import CommissionNegotiator from '../components/CommissionNegotiator';
 
 const BuyerDashboard = () => {
   const { isDark } = useTheme();
   const dispatch = useDispatch();
-  const { user } = useSelector((s) => s.auth);
-  const { orders, isLoading } = useSelector((s) => s.order);
-  const { items: wishlistItems } = useSelector((s) => s.wishlist);
+  
+  const updateCommission = (updatedComm) => {
+    setCommissions(prev => prev.map(c => c._id === updatedComm._id ? updatedComm : c));
+  };
+  const { user } = useSelector(s => s.auth);
+  const { orders, isLoading: ordersLoading } = useSelector(s => s.order);
+  const { items: wishlistItems, isLoading: wishLoading } = useSelector(s => s.wishlist);
   const [activeTab, setActiveTab] = useState('purchases');
+  const [following, setFollowing] = useState([]);
+  const [commissions, setCommissions] = useState([]);
 
   useEffect(() => {
     dispatch(fetchMyOrders());
     dispatch(fetchWishlist());
+    fetchFollowing();
+    fetchCommissions();
   }, [dispatch]);
 
-  const completedOrders = orders.filter((o) => o.payment?.status === 'completed');
+  const fetchFollowing = async () => {
+    try {
+      if (user?._id) {
+        const { data } = await api.get(`/api/users/${user._id}/following`);
+        setFollowing(data.data || []);
+      }
+    } catch (err) { console.error('Failed to fetch following'); }
+  };
+
+  const fetchCommissions = async () => {
+    try {
+      const { data } = await api.get('/api/commissions?as=buyer');
+      setCommissions(data.data || []);
+    } catch (err) { console.error('Failed to fetch commissions'); }
+  };
 
   const handleDownload = async (orderId) => {
     try {
-      const res = await api.get(`/api/orders/${orderId}/download`);
-      const { downloadUrl, downloadsRemaining } = res.data.data;
-      window.open(downloadUrl, '_blank');
-      toast.success(`Download started. ${downloadsRemaining} downloads remaining.`);
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Download failed');
-    }
+      const result = await dispatch(getDownloadLink(orderId)).unwrap();
+      if (result.downloadUrl) window.open(result.downloadUrl, '_blank');
+      else toast.error('Download not available');
+    } catch (err) { toast.error(err || 'Download failed'); }
   };
 
-  const handleCertificate = async (orderId) => {
+  const handleCertificate = (orderId) => {
+    const token = localStorage.getItem('artvault_token');
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    window.open(`${baseURL}/api/orders/${orderId}/certificate?token=${token}`, '_blank');
+  };
+
+  const handleRemoveWishlist = (artworkId) => {
+    dispatch(removeFromWishlist(artworkId));
+    toast.success('Removed from wishlist');
+  };
+
+  const handleUnfollow = async (userId) => {
     try {
-      const res = await api.get(`/api/orders/${orderId}/certificate`, {
-        responseType: 'blob',
-      });
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ArtVault-Certificate-${orderId}.pdf`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-      toast.success('Certificate downloaded!');
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to get certificate');
-    }
+      await api.delete(`/api/users/${userId}/follow`);
+      setFollowing(prev => prev.filter(f => f._id !== userId));
+      toast.success('Unfollowed');
+    } catch (err) { toast.error('Failed to unfollow'); }
   };
 
-  const stats = [
-    { label: 'Purchases', value: completedOrders.length, icon: HiShoppingBag },
-    { label: 'Wishlist', value: wishlistItems.length, icon: HiHeart },
-    { label: 'Following', value: user?.following?.length || 0, icon: HiUserGroup },
+  const completedOrders = orders?.filter(o => o.payment?.status === 'completed') || [];
+
+  const tabs = [
+    { id: 'purchases', label: 'My Collection', icon: HiShoppingBag, count: completedOrders.length },
+    { id: 'wishlist', label: 'Wishlist', icon: HiHeart, count: wishlistItems?.length || 0 },
+    { id: 'following', label: 'Following', icon: HiUserGroup, count: following.length },
+    ...(user?.role !== 'artist' ? [{ id: 'commissions', label: 'Commissions', icon: HiChatBubbleLeftEllipsis, count: commissions.length }] : []),
   ];
 
-  const emptyStates = {
-    purchases: {
-      icon: HiShoppingBag,
-      title: 'No purchases yet',
-      desc: 'Start exploring the gallery and collect your first artwork',
-      cta: 'Browse Gallery',
-      link: '/marketplace',
+  const stats = [
+    { 
+      label: 'Artworks Owned', 
+      value: completedOrders.length, 
+      gradient: 'from-brand-terracotta to-brand-coral',
+      glow: 'shadow-[0_8px_30px_rgba(196,93,62,0.18)]' 
     },
-    wishlist: {
-      icon: HiHeart,
-      title: 'Your wishlist is empty',
-      desc: 'Save artworks you love and come back to them later',
-      cta: 'Discover Artworks',
-      link: '/marketplace',
+    { 
+      label: 'Wishlist Items', 
+      value: wishlistItems?.length || 0, 
+      gradient: 'from-brand-coral to-brand-gold',
+      glow: 'shadow-[0_8px_30px_rgba(217,122,94,0.18)]' 
     },
-    following: {
-      icon: HiUserGroup,
-      title: "You're not following any artists",
-      desc: 'Follow artists to see their new drops in your feed',
-      cta: 'Find Artists',
-      link: '/marketplace',
+    { 
+      label: 'Following', 
+      value: following.length, 
+      gradient: 'from-brand-teal to-emerald-500',
+      glow: 'shadow-[0_8px_30px_rgba(45,134,134,0.18)]' 
     },
-  };
+  ];
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-12">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-10"
-        >
-          <h1 className={`font-display text-3xl sm:text-4xl font-bold ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-            My Collection
-          </h1>
-          <p className={`mt-2 ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-            Welcome back, {user?.name}. Manage your art collection.
+    <PageTransition>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="font-display text-title">My Collection</h1>
+          <p className={`text-sm mt-1 ${isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'}`}>
+            Your purchased artworks, wishlist, and followed artists
           </p>
-        </motion.div>
+        </div>
+
+        {/* Creative Aura Identity */}
+        <div className="mb-8">
+          <CreativeAura />
+        </div>
 
         {/* Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="grid grid-cols-3 gap-4 mb-10"
-        >
-          {stats.map((s) => (
-            <div
-              key={s.label}
-              className={`p-5 rounded-xl border ${isDark ? 'bg-gallery-darkCard border-gallery-darkBorder' : 'bg-gallery-lightCard border-gallery-lightBorder'}`}
+        <div className="grid grid-cols-3 gap-6 mb-8">
+          {stats.map((s, i) => (
+            <motion.div 
+              key={s.label} 
+              initial={{ opacity: 0, y: 20 }} 
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -6, scale: 1.02 }}
+              transition={{ delay: i * 0.1, duration: 0.3, type: "spring", stiffness: 300, damping: 20 }}
+              className={`p-6 rounded-2xl bg-gradient-to-br ${s.gradient} ${s.glow} text-white flex flex-col justify-between relative overflow-hidden`}
             >
-              <s.icon className="w-5 h-5 text-gallery-accent mb-2" />
-              <p className="font-display text-2xl font-bold text-gallery-accent">{s.value}</p>
-              <p className={`text-xs mt-1 ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>{s.label}</p>
-            </div>
-          ))}
-        </motion.div>
-
-        {/* Tabs */}
-        <div className={`flex gap-1 p-1 rounded-xl mb-8 w-fit ${isDark ? 'bg-gallery-darkSurface' : 'bg-gallery-lightSurface'}`}>
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                activeTab === tab.id
-                  ? 'bg-gallery-accent text-gallery-dark'
-                  : isDark
-                    ? 'text-gallery-textMuted hover:text-gallery-text'
-                    : 'text-gallery-textDarkMuted hover:text-gallery-textDark'
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-            </button>
+              {/* Subtle bubble background pattern */}
+              <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-white/10 blur-xl pointer-events-none" />
+              <div className="absolute top-2 right-2 w-12 h-12 rounded-full bg-white/5 blur-md pointer-events-none" />
+              <p className="text-3xl font-bold tracking-tight z-10">{s.value}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-white/80 mt-3 z-10">{s.label}</p>
+            </motion.div>
           ))}
         </div>
 
-        {/* Tab Content */}
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          {activeTab === 'purchases' && completedOrders.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {completedOrders.map((order) => (
-                <div
-                  key={order._id}
-                  className={`p-4 rounded-xl border flex gap-4 ${isDark ? 'bg-gallery-darkCard border-gallery-darkBorder' : 'bg-gallery-lightCard border-gallery-lightBorder'}`}
-                >
-                  {order.artwork?.images?.thumbnail && (
-                    <Link to={`/artwork/${order.artwork._id}`}>
-                      <img src={order.artwork.images.thumbnail} alt="" className="w-20 h-20 rounded-lg object-cover shrink-0" />
-                    </Link>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <Link to={`/artwork/${order.artwork?._id}`}>
-                      <h3 className={`font-display font-semibold text-sm truncate hover:text-gallery-accent transition-colors ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-                        {order.artwork?.title || 'Artwork'}
-                      </h3>
-                    </Link>
-                    <p className={`text-xs mt-1 ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-                      by {order.artist?.name} · {new Date(order.createdAt).toLocaleDateString()}
-                    </p>
-                    <p className="text-gallery-accent font-semibold text-sm mt-1">₹{Number(order.amount).toLocaleString('en-IN')}</p>
-                    {order.certificateId && (
-                      <p className={`text-[10px] mt-1 ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-                        Certificate: {order.certificateId}
-                      </p>
-                    )}
-                    <div className="flex gap-2 mt-3">
-                      <button
-                        onClick={() => handleDownload(order._id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gallery-accent/10 text-gallery-accent text-xs font-medium hover:bg-gallery-accent/20 transition-colors"
-                      >
-                        <HiArrowDownTray className="w-3.5 h-3.5" />
-                        Download
-                      </button>
-                      <button
-                        onClick={() => handleCertificate(order._id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-white/5 text-gallery-textMuted hover:bg-white/10' : 'bg-black/5 text-gallery-textDarkMuted hover:bg-black/10'}`}
-                      >
-                        <HiDocumentText className="w-3.5 h-3.5" />
-                        Certificate
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : activeTab === 'wishlist' && wishlistItems.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {wishlistItems.map((item) => (
-                <div
-                  key={item._id}
-                  className={`rounded-xl overflow-hidden border group ${isDark ? 'bg-gallery-darkCard border-gallery-darkBorder' : 'bg-gallery-lightCard border-gallery-lightBorder'}`}
-                >
-                  <Link to={`/artwork/${item.artwork?._id}`}>
-                    <div className="aspect-[4/3] overflow-hidden">
-                      <img
-                        src={item.artwork?.images?.thumbnail || item.artwork?.images?.preview || ''}
-                        alt={item.artwork?.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    </div>
-                  </Link>
-                  <div className="p-4">
-                    <Link to={`/artwork/${item.artwork?._id}`}>
-                      <h3 className={`font-display font-semibold text-sm truncate hover:text-gallery-accent transition-colors ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-                        {item.artwork?.title}
-                      </h3>
-                    </Link>
-                    <div className="flex justify-between items-center mt-2">
-                      <span className={`text-xs ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-                        {item.artwork?.artist?.name}
-                      </span>
-                      <span className="text-gallery-accent font-semibold text-sm">
-                        ₹{Number(item.artwork?.price || 0).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        dispatch(removeFromWishlist(item.artwork?._id));
-                        toast.success('Removed from wishlist');
-                      }}
-                      className="mt-3 w-full text-xs text-red-400 hover:bg-red-500/10 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <HiHeart className="w-3.5 h-3.5" />
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+        <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} className="mb-8" />
+
+        {/* Purchases */}
+        {activeTab === 'purchases' && (
+          completedOrders.length === 0 ? (
+            <EmptyState icon={HiShoppingBag} title="No purchases yet" description="Start building your art collection"
+              action={<Link to="/marketplace" className="btn-primary">Explore Marketplace</Link>} />
           ) : (
-            <div className={`text-center py-20 rounded-xl border border-dashed ${isDark ? 'border-gallery-darkBorder' : 'border-gallery-lightBorder'}`}>
-              {(() => {
-                const empty = emptyStates[activeTab];
-                return (
-                  <>
-                    <empty.icon className={`w-14 h-14 mx-auto mb-4 ${isDark ? 'text-gallery-textMuted/40' : 'text-gallery-textDarkMuted/40'}`} />
-                    <p className={`text-lg font-display font-semibold mb-2 ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-                      {empty.title}
-                    </p>
-                    <p className={`text-sm mb-6 max-w-md mx-auto ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-                      {empty.desc}
-                    </p>
-                    <Link to={empty.link} className="btn-primary inline-flex items-center gap-2">
-                      {empty.cta}
-                      <HiArrowRight className="w-4 h-4" />
+            <StaggerContainer className="space-y-4">
+              {completedOrders.map(order => (
+                <StaggerItem key={order._id}>
+                  <div className="card p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <Link to={`/artwork/${order.artwork?._id}`} className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
+                      <img src={order.artwork?.images?.thumbnail} alt={order.artwork?.title} className="w-full h-full object-cover" />
                     </Link>
-                  </>
+                    <div className="flex-1 min-w-0">
+                      <Link to={`/artwork/${order.artwork?._id}`} className="font-semibold text-sm hover:text-brand-terracotta transition-colors">{order.artwork?.title}</Link>
+                      <p className={`text-xs mt-0.5 ${isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'}`}>
+                        by {order.artist?.name} · {new Date(order.createdAt).toLocaleDateString()}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-brand-terracotta font-bold text-sm">₹{order.amount?.toLocaleString()}</span>
+                        {order.editionNumber && <Badge variant="gold">Edition #{order.editionNumber}</Badge>}
+                        <Badge variant="teal">Owned</Badge>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button onClick={() => handleDownload(order._id)} className="btn-ghost text-xs flex items-center gap-1">
+                        <HiArrowDownTray className="w-4 h-4" /> Download
+                      </button>
+                      <button onClick={() => handleCertificate(order._id)} className="btn-ghost text-xs flex items-center gap-1">
+                        <HiDocumentText className="w-4 h-4" /> Certificate
+                      </button>
+                    </div>
+                  </div>
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
+          )
+        )}
+
+        {/* Wishlist */}
+        {activeTab === 'wishlist' && (
+          !wishlistItems?.length ? (
+            <EmptyState icon={HiHeart} title="Wishlist is empty" description="Save artworks you love for later"
+              action={<Link to="/marketplace" className="btn-primary">Browse Art</Link>} />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {wishlistItems.map(item => {
+                const art = item.artwork || item;
+                return (
+                  <div key={item._id} className="card overflow-hidden hover-tilt group">
+                    <Link to={`/artwork/${art._id}`} className="block aspect-[3/4] overflow-hidden">
+                      <img src={art.images?.thumbnail || art.images?.preview} alt={art.title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    </Link>
+                    <div className="p-4">
+                      <p className="font-semibold text-sm truncate">{art.title}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-brand-terracotta font-bold text-sm">₹{art.price?.toLocaleString()}</span>
+                        <button onClick={() => handleRemoveWishlist(art._id)} className="text-red-400 hover:text-red-500 transition-colors">
+                          <HiTrash className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 );
-              })()}
+              })}
             </div>
-          )}
-        </motion.div>
+          )
+        )}
+
+        {/* Following */}
+        {activeTab === 'following' && (
+          following.length === 0 ? (
+            <EmptyState icon={HiUserGroup} title="Not following anyone" description="Follow artists to see their latest work"
+              action={<Link to="/marketplace" className="btn-primary">Discover Artists</Link>} />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {following.map(artist => (
+                <div key={artist._id} className="card p-5 flex items-center gap-4">
+                  <Link to={`/artist/${artist._id}`}>
+                    <Avatar name={artist.name} image={artist.profileImage} size="lg" />
+                  </Link>
+                  <div className="flex-1 min-w-0">
+                    <Link to={`/artist/${artist._id}`} className="font-semibold text-sm hover:text-brand-terracotta transition-colors">{artist.name}</Link>
+                    <p className={`text-xs truncate ${isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'}`}>{artist.bio || 'Artist'}</p>
+                  </div>
+                  <button onClick={() => handleUnfollow(artist._id)} className="btn-ghost text-xs text-red-400">Unfollow</button>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* Commissions */}
+        {activeTab === 'commissions' && (
+          commissions.length === 0 ? (
+            <EmptyState icon={HiChatBubbleLeftEllipsis} title="No commissions requested" description="Commission custom artworks from your favorite artists"
+              action={<Link to="/marketplace" className="btn-primary">Browse Artists</Link>} />
+          ) : (
+            <div className="space-y-4">
+              {commissions.map(c => (
+                <div key={c._id} className="card p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={c.artist?.name} image={c.artist?.profileImage} size="md" />
+                      <div>
+                        <h3 className="font-semibold text-sm">Artist: {c.artist?.name}</h3>
+                        <p className={`text-xs ${isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'}`}>
+                          Requested on {new Date(c.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-brand-terracotta">₹{c.budget?.toLocaleString()}</span>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${
+                        c.status === 'accepted' ? 'bg-brand-teal/10 text-brand-teal'
+                        : c.status === 'rejected' ? 'bg-brand-coral/10 text-brand-coral'
+                        : c.status === 'completed' ? 'bg-brand-teal/20 text-brand-teal'
+                        : 'bg-brand-gold/10 text-brand-gold'
+                      }`}>
+                        {c.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                  </div>
+                  <CommissionNegotiator commission={c} user={user} onUpdate={updateCommission} isDark={isDark} />
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        <div className="mt-12">
+          <StudioSketchpad />
+        </div>
       </div>
-    </div>
+    </PageTransition>
   );
 };
 

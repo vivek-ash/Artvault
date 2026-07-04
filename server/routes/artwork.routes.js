@@ -27,6 +27,6 @@ router.post('/', protect, authorize('artist'), upload.single('image'), createArt
 router.put('/:id', protect, authorize('artist', 'admin'), upload.single('image'), updateArtwork);
 router.delete('/:id', protect, authorize('artist', 'admin'), deleteArtwork);
 router.post('/:id/report', protect, reportArtwork);
-router.post('/:id/bid', protect, authorize('buyer'), placeBid);
+router.post('/:id/bid', protect, authorize('buyer', 'artist'), placeBid);
 
 module.exports = router;

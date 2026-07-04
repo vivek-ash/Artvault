@@ -177,6 +177,7 @@ artworkSchema.index({ status: 1 });
 artworkSchema.index({ price: 1 });
 artworkSchema.index({ createdAt: -1 });
 artworkSchema.index({ dominantColor: 1 });
+artworkSchema.index({ viewCount: -1 });
 
 // Virtual: check if sold out
 artworkSchema.virtual('isSoldOut').get(function () {

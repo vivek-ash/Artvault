@@ -68,6 +68,26 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
+// Stricter rate limiting for auth routes (10 req / 15 min)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: {
+    success: false,
+    error: 'Too many login attempts, please try again after 15 minutes.',
+  },
+});
+
+// Stricter rate limiting for payment routes (20 req / 15 min)
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: {
+    success: false,
+    error: 'Too many payment requests, please try again later.',
+  },
+});
+
 // --------------- Routes ---------------
 
 // Health check
@@ -79,9 +99,12 @@ app.get('/api/health', (req, res) => {
 });
 
 // Mount routers
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/artworks', artworkRoutes);
+app.use('/api/orders', paymentLimiter);
 app.use('/api/orders', orderRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/commissions', commissionRoutes);
@@ -124,11 +147,13 @@ io.on('connection', (socket) => {
 // --------------- Start Server ---------------
 
 const PORT = process.env.PORT || 5000;
+const startAuctionScheduler = require('./utils/auctionScheduler');
 
 server.listen(PORT, () => {
   console.log(
     `Server running in ${process.env.NODE_ENV} mode on port ${PORT}`
   );
+  startAuctionScheduler(app);
 });
 
 // Handle unhandled promise rejections

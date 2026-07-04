@@ -60,6 +60,33 @@ const commissionSchema = new mongoose.Schema(
       ref: 'Artwork',
       default: null,
     },
+    replies: [
+      {
+        sender: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        message: {
+          type: String,
+          required: true,
+        },
+        negotiatedPrice: {
+          type: Number,
+          default: null,
+        },
+        attachments: [
+          {
+            url: String,
+            publicId: String,
+          }
+        ],
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        }
+      }
+    ],
   },
   {
     timestamps: true,

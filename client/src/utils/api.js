@@ -26,9 +26,22 @@ api.interceptors.response.use(
   (error) => {
     const message = error.response?.data?.error || error.message || 'Something went wrong';
 
-    // If 401 unauthorized, clear stored token
+    // If 401 unauthorized, clear stored token and redirect to login
     if (error.response?.status === 401) {
+      const hadToken = localStorage.getItem('artvault_token');
       localStorage.removeItem('artvault_token');
+
+      // Only show session expired if user was previously logged in
+      if (hadToken && !window.location.pathname.includes('/login')) {
+        // Dynamic import to avoid circular dependency
+        import('react-hot-toast').then(({ default: toast }) => {
+          toast.error('Session expired. Please sign in again.');
+        });
+        // Redirect to login after a small delay
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1000);
+      }
     }
 
     return Promise.reject(error);

@@ -43,8 +43,11 @@ A full-stack MERN web application enabling artists to upload, showcase, and secu
 9. **Follow System + Activity Feed** — Followers/following with real-time new follower notifications
 10. **Real-time Notifications (Socket.io)** — New sale, follower, bid outbid, commission status changes
 11. **Search/Filter** — By category, art style, price range, dominant color
-12. **Admin Moderation Dashboard** — User management (suspend/unsuspend), artwork moderation, platform stats
-13. **Three User Roles** — Artist, Buyer, Admin with role-based access control
+12. **Admin Moderation Dashboard** — User management (suspend/unsuspend), artist verification tags, artwork moderation, platform stats
+13. **Three User Roles** — Artist, Buyer, Admin with role-based access control (including cross-role purchases and wishlist support for artists)
+14. **Interactive Studio Sketchpad** — Draw and download custom commission drafts/concept doodles directly in the dashboard
+15. **Creative Aura Identity** — Morphing ambient liquid gradient visualization reflecting the user's artistic personality
+16. **Artistic Watercolor Cursor & Spotlight Ambient Glow Backdrop** — Premium fluid paint droplet trailing effects and slowly flowing spotlight blobs
 
 ---
 

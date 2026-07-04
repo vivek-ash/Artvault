@@ -1,19 +1,22 @@
 import { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { HiUser, HiEnvelope, HiLockClosed, HiPaintBrush, HiEye, HiEyeSlash } from 'react-icons/hi2';
-import { HiShoppingBag } from 'react-icons/hi';
+import {
+  HiUser,
+  HiEnvelope,
+  HiLockClosed,
+  HiEye,
+  HiEyeSlash,
+  HiPaintBrush,
+  HiShoppingBag,
+} from 'react-icons/hi2';
 import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
 import { registerUser, clearError } from '../features/auth/authSlice';
+import { PageTransition } from '../components/ui';
 
 const Register = () => {
-  const { isDark } = useTheme();
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const { isLoading, error, isAuthenticated, user } = useSelector((state) => state.auth);
-
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,255 +24,266 @@ const Register = () => {
   const [role, setRole] = useState('buyer');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [validationError, setValidationError] = useState('');
 
-  const roles = [
-    { value: 'artist', label: "I'm an Artist", icon: HiPaintBrush, desc: 'Showcase & sell your art' },
-    { value: 'buyer', label: "I'm a Buyer", icon: HiShoppingBag, desc: 'Discover & collect art' },
-  ];
+  const { isDark } = useTheme();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
-  // Redirect on successful registration
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      const redirectMap = {
-        artist: '/dashboard/artist',
-        buyer: '/dashboard/buyer',
-        admin: '/admin',
-      };
-      toast.success(`Welcome to ArtVault, ${user.name}!`);
-      navigate(redirectMap[user.role] || '/', { replace: true });
-    }
-  }, [isAuthenticated, user, navigate]);
+  const { user, isLoading, isAuthenticated, error } = useSelector(
+    (state) => state.auth
+  );
 
-  // Show error toast
+  // Show toast on error
   useEffect(() => {
     if (error) {
       toast.error(error);
-      dispatch(clearError());
     }
-  }, [error, dispatch]);
+  }, [error]);
+
+  // Redirect on successful authentication
+  useEffect(() => {
+    if (isAuthenticated && user?.role) {
+      switch (user.role) {
+        case 'artist':
+          navigate('/dashboard/artist');
+          break;
+        case 'buyer':
+          navigate('/dashboard/buyer');
+          break;
+        case 'admin':
+          navigate('/admin');
+          break;
+        default:
+          navigate('/');
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  // Clear error on unmount
+  useEffect(() => {
+    return () => {
+      dispatch(clearError());
+    };
+  }, [dispatch]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
-    // Client-side validation
-    if (!name || !email || !password || !confirmPassword) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
-    if (name.trim().length < 2) {
-      toast.error('Name must be at least 2 characters');
-      return;
-    }
+    setValidationError('');
 
     if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      setValidationError('Password must be at least 6 characters');
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error('Passwords do not match');
+      setValidationError('Passwords do not match');
       return;
     }
 
-    dispatch(registerUser({ name: name.trim(), email, password, role }));
+    dispatch(registerUser({ name, email, password, role }));
   };
 
+  const mutedText = isDark
+    ? 'text-gallery-darkTextMuted'
+    : 'text-gallery-textMuted';
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="min-h-[80vh] flex items-center justify-center px-6 py-12"
-    >
-      <div className={`w-full max-w-md p-8 sm:p-10 rounded-2xl border ${
-        isDark
-          ? 'bg-gallery-darkCard border-gallery-darkBorder shadow-2xl shadow-black/40'
-          : 'bg-gallery-lightCard border-gallery-lightBorder shadow-2xl shadow-black/10'
-      }`}>
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 mx-auto mb-5 rounded-xl bg-gradient-to-br from-gallery-accent to-amber-600 flex items-center justify-center shadow-lg shadow-gallery-accent/20">
-            <span className="text-gallery-dark font-display font-bold text-xl">A</span>
-          </div>
-          <h1 className={`font-display text-3xl font-bold mb-2 ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-            Join ArtVault
+    <PageTransition>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="min-h-screen flex items-center justify-center px-4 py-12"
+      >
+        <div className="w-full max-w-lg card p-8">
+          {/* Terracotta accent bar */}
+          <div className="h-1 w-16 bg-brand-terracotta rounded-full mx-auto mb-6" />
+
+          {/* Heading */}
+          <h1 className="font-display text-2xl text-center mb-2">
+            Create Your Account
           </h1>
-          <p className={`text-sm ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-            Create your account and start your journey
-          </p>
-        </div>
 
-        {/* Form */}
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          {/* Role Selection */}
-          <div>
-            <label className={`block text-sm font-medium mb-3 ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-              I want to...
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              {roles.map((r) => (
-                <button
-                  key={r.value}
-                  type="button"
-                  onClick={() => setRole(r.value)}
-                  disabled={isLoading}
-                  className={`p-4 rounded-xl border-2 text-left transition-all duration-300 ${
-                    role === r.value
-                      ? 'border-gallery-accent bg-gallery-accent/10'
-                      : isDark
-                        ? 'border-gallery-darkBorder hover:border-gallery-accent/30 bg-gallery-darkSurface'
-                        : 'border-gallery-lightBorder hover:border-gallery-accent/30 bg-gallery-lightSurface'
-                  }`}
-                >
-                  <r.icon className={`w-6 h-6 mb-2 ${role === r.value ? 'text-gallery-accent' : isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`} />
-                  <p className={`text-sm font-semibold ${
-                    role === r.value
-                      ? 'text-gallery-accent'
-                      : isDark ? 'text-gallery-text' : 'text-gallery-textDark'
-                  }`}>
-                    {r.label}
-                  </p>
-                  <p className={`text-xs mt-0.5 ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-                    {r.desc}
-                  </p>
-                </button>
-              ))}
-            </div>
+          {/* Subtitle */}
+          <p className={`text-sm text-center mb-8 ${mutedText}`}>
+            Join the world&apos;s premier digital art marketplace
+          </p>
+
+          {/* Role selection */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            {/* Artist card */}
+            <button
+              type="button"
+              onClick={() => setRole('artist')}
+              className={`p-4 rounded-xl border cursor-pointer transition-all text-left ${
+                role === 'artist'
+                  ? 'border-2 border-brand-terracotta bg-brand-terracotta/5'
+                  : isDark
+                  ? 'border-gallery-darkCard hover:border-brand-terracotta/40'
+                  : 'border-gallery-card hover:border-brand-terracotta/40'
+              }`}
+            >
+              <HiPaintBrush
+                className={`w-6 h-6 mb-2 ${
+                  role === 'artist' ? 'text-brand-terracotta' : mutedText
+                }`}
+              />
+              <p className="font-medium text-sm">I&apos;m an Artist</p>
+              <p className={`text-xs mt-1 ${mutedText}`}>
+                Showcase &amp; sell your art
+              </p>
+            </button>
+
+            {/* Collector card */}
+            <button
+              type="button"
+              onClick={() => setRole('buyer')}
+              className={`p-4 rounded-xl border cursor-pointer transition-all text-left ${
+                role === 'buyer'
+                  ? 'border-2 border-brand-teal bg-brand-teal/5'
+                  : isDark
+                  ? 'border-gallery-darkCard hover:border-brand-teal/40'
+                  : 'border-gallery-card hover:border-brand-teal/40'
+              }`}
+            >
+              <HiShoppingBag
+                className={`w-6 h-6 mb-2 ${
+                  role === 'buyer' ? 'text-brand-teal' : mutedText
+                }`}
+              />
+              <p className="font-medium text-sm">I&apos;m a Collector</p>
+              <p className={`text-xs mt-1 ${mutedText}`}>
+                Discover &amp; collect art
+              </p>
+            </button>
           </div>
 
-          {/* Name */}
-          <div>
-            <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-              Full Name
-            </label>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Full Name */}
             <div className="relative">
-              <HiUser className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${isDark ? 'text-gallery-textMuted/50' : 'text-gallery-textDarkMuted/50'}`} />
+              <HiUser
+                className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${mutedText}`}
+              />
               <input
                 type="text"
+                placeholder="Full Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Your full name"
-                className="input-field pl-12"
-                disabled={isLoading}
+                required
+                className="input-field w-full pl-10"
               />
             </div>
-          </div>
 
-          {/* Email */}
-          <div>
-            <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-              Email
-            </label>
+            {/* Email */}
             <div className="relative">
-              <HiEnvelope className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${isDark ? 'text-gallery-textMuted/50' : 'text-gallery-textDarkMuted/50'}`} />
+              <HiEnvelope
+                className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${mutedText}`}
+              />
               <input
                 type="email"
+                placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="input-field pl-12"
-                disabled={isLoading}
+                required
+                className="input-field w-full pl-10"
               />
             </div>
-          </div>
 
-          {/* Password */}
-          <div>
-            <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-              Password
-            </label>
-            <div className="relative">
-              <HiLockClosed className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${isDark ? 'text-gallery-textMuted/50' : 'text-gallery-textDarkMuted/50'}`} />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Create a password"
-                className="input-field pl-12 pr-12"
-                disabled={isLoading}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className={`absolute right-4 top-1/2 -translate-y-1/2 transition-colors duration-200 ${
-                  isDark
-                    ? 'text-gallery-textMuted/50 hover:text-gallery-textMuted'
-                    : 'text-gallery-textDarkMuted/50 hover:text-gallery-textDarkMuted'
-                }`}
-                tabIndex={-1}
-              >
-                {showPassword ? <HiEyeSlash className="w-5 h-5" /> : <HiEye className="w-5 h-5" />}
-              </button>
+            {/* Password */}
+            <div>
+              <div className="relative">
+                <HiLockClosed
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${mutedText}`}
+                />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Password (min 6 characters)"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setValidationError('');
+                  }}
+                  required
+                  className="input-field w-full pl-10 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 ${mutedText} hover:text-brand-terracotta transition-colors`}
+                >
+                  {showPassword ? (
+                    <HiEyeSlash className="w-5 h-5" />
+                  ) : (
+                    <HiEye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
             </div>
-            <p className={`text-xs mt-1.5 ${isDark ? 'text-gallery-textMuted/60' : 'text-gallery-textDarkMuted/60'}`}>
-              Minimum 6 characters
-            </p>
-          </div>
 
-          {/* Confirm Password */}
-          <div>
-            <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-              Confirm Password
-            </label>
-            <div className="relative">
-              <HiLockClosed className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${isDark ? 'text-gallery-textMuted/50' : 'text-gallery-textDarkMuted/50'}`} />
-              <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm your password"
-                className="input-field pl-12 pr-12"
-                disabled={isLoading}
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className={`absolute right-4 top-1/2 -translate-y-1/2 transition-colors duration-200 ${
-                  isDark
-                    ? 'text-gallery-textMuted/50 hover:text-gallery-textMuted'
-                    : 'text-gallery-textDarkMuted/50 hover:text-gallery-textDarkMuted'
-                }`}
-                tabIndex={-1}
-              >
-                {showConfirmPassword ? <HiEyeSlash className="w-5 h-5" /> : <HiEye className="w-5 h-5" />}
-              </button>
+            {/* Confirm Password */}
+            <div>
+              <div className="relative">
+                <HiLockClosed
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${mutedText}`}
+                />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Confirm Password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setValidationError('');
+                  }}
+                  required
+                  className="input-field w-full pl-10 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 ${mutedText} hover:text-brand-terracotta transition-colors`}
+                >
+                  {showConfirmPassword ? (
+                    <HiEyeSlash className="w-5 h-5" />
+                  ) : (
+                    <HiEye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+
+              {/* Validation error */}
+              {validationError && (
+                <p className="text-red-500 text-xs mt-2">{validationError}</p>
+              )}
             </div>
-          </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="btn-primary w-full py-3.5 rounded-xl text-base mt-2 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isLoading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-gallery-dark/30 border-t-gallery-dark rounded-full animate-spin" />
-                Creating Account...
-              </>
-            ) : (
-              'Create Account'
-            )}
-          </button>
-        </form>
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="btn-primary w-full mt-4 flex items-center justify-center gap-2"
+            >
+              {isLoading && (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              )}
+              {isLoading ? 'Creating Account...' : 'Create Account'}
+            </button>
+          </form>
 
-        {/* Divider */}
-        <div className="my-6 flex items-center gap-3">
-          <div className={`flex-1 h-px ${isDark ? 'bg-gallery-darkBorder' : 'bg-gallery-lightBorder'}`} />
-          <span className={`text-xs ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>or</span>
-          <div className={`flex-1 h-px ${isDark ? 'bg-gallery-darkBorder' : 'bg-gallery-lightBorder'}`} />
+          {/* Login link */}
+          <p className={`text-sm text-center mt-6 ${mutedText}`}>
+            Already have an account?{' '}
+            <Link
+              to="/login"
+              className="text-brand-terracotta hover:underline font-medium"
+            >
+              Sign in
+            </Link>
+          </p>
         </div>
-
-        {/* Login Link */}
-        <p className={`text-center text-sm ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-          Already have an account?{' '}
-          <Link to="/login" className="text-gallery-accent hover:text-gallery-accentHover font-medium transition-colors">
-            Sign In
-          </Link>
-        </p>
-      </div>
-    </motion.div>
+      </motion.div>
+    </PageTransition>
   );
 };
 

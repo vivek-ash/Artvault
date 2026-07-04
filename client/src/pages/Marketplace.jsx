@@ -1,380 +1,600 @@
-import { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import {
-  HiMagnifyingGlass,
-  HiAdjustmentsHorizontal,
-  HiFunnel,
-  HiXMark,
-  HiEye,
-  HiHeart,
-  HiClock,
-  HiSparkles,
-} from 'react-icons/hi2';
+import { useState, useEffect, useCallback } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { Link, useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { HiMagnifyingGlass, HiAdjustmentsHorizontal, HiXMark } from 'react-icons/hi2';
 import { useTheme } from '../context/ThemeContext';
 import { fetchArtworks, setFilters, clearFilters } from '../features/artwork/artworkSlice';
+import {
+  PageTransition,
+  StaggerContainer,
+  StaggerItem,
+  ArtworkCardSkeleton,
+  EmptyState,
+  Badge,
+  Avatar,
+} from '../components/ui';
 
-const categories = [
-  'All', 'Digital Painting', 'Illustration', '3D Art', 'Pixel Art', 'Photography',
-  'Abstract', 'Concept Art', 'Character Design', 'Landscape', 'Portrait',
-  'Fan Art', 'Generative Art', 'Other',
+// ── Constants ──────────────────────────────────────────────────────────────────
+
+const CATEGORIES = [
+  'All',
+  'Digital Painting',
+  'Illustration',
+  '3D Art',
+  'Pixel Art',
+  'Photography',
+  'Abstract',
+  'Concept Art',
+  'Character Design',
+  'Landscape',
+  'Portrait',
+  'Fan Art',
+  'Generative Art',
+  'Other',
 ];
 
-const sortOptions = [
-  { value: '-createdAt', label: 'Newest First' },
-  { value: 'createdAt', label: 'Oldest First' },
-  { value: '-price', label: 'Price: High to Low' },
-  { value: 'price', label: 'Price: Low to High' },
-  { value: '-viewCount', label: 'Most Viewed' },
-  { value: '-likeCount', label: 'Most Liked' },
+const SORT_OPTIONS = [
+  { value: '-createdAt', label: 'Newest' },
+  { value: 'createdAt', label: 'Oldest' },
+  { value: 'price', label: 'Price: Low → High' },
+  { value: '-price', label: 'Price: High → Low' },
+  { value: '-viewCount', label: 'Most Popular' },
 ];
+
+const SALE_TYPES = [
+  { value: '', label: 'All' },
+  { value: 'fixed', label: 'Fixed Price' },
+  { value: 'auction', label: 'Auction' },
+];
+
+// ── Filter Panel Animations ────────────────────────────────────────────────────
+
+const filterPanelVariants = {
+  hidden: { opacity: 0, height: 0, marginBottom: 0 },
+  visible: {
+    opacity: 1,
+    height: 'auto',
+    marginBottom: 24,
+    transition: { duration: 0.4, ease: [0.23, 1, 0.32, 1] },
+  },
+  exit: {
+    opacity: 0,
+    height: 0,
+    marginBottom: 0,
+    transition: { duration: 0.3, ease: [0.23, 1, 0.32, 1] },
+  },
+};
+
+// ── Custom Debounce Hook ───────────────────────────────────────────────────────
+
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Marketplace Page
+// ═══════════════════════════════════════════════════════════════════════════════
 
 const Marketplace = () => {
   const { isDark } = useTheme();
   const dispatch = useDispatch();
   const { artworks, pagination, isLoading, filters } = useSelector((s) => s.artwork);
 
-  const [searchInput, setSearchInput] = useState('');
+  // ── Local State ────────────────────────────────────────────────────────────
+
+  const [searchInput, setSearchInput] = useState(filters.search || '');
   const [showFilters, setShowFilters] = useState(false);
-  const [localFilters, setLocalFilters] = useState({
-    category: '',
-    minPrice: '',
-    maxPrice: '',
-    saleType: '',
-    sort: '-createdAt',
-  });
+  const [localMinPrice, setLocalMinPrice] = useState(filters.minPrice || '');
+  const [localMaxPrice, setLocalMaxPrice] = useState(filters.maxPrice || '');
+  const [localSort, setLocalSort] = useState(filters.sort || '-createdAt');
+  const [localSaleType, setLocalSaleType] = useState(filters.saleType || '');
+
+  // ── Debounced Search ───────────────────────────────────────────────────────
+
+  const debouncedSearch = useDebounce(searchInput, 400);
 
   useEffect(() => {
-    const params = { ...filters };
-    if (params.category === 'All') params.category = '';
+    dispatch(setFilters({ search: debouncedSearch }));
+  }, [debouncedSearch, dispatch]);
+
+  // ── Fetch Artworks on Filter Change ────────────────────────────────────────
+
+  useEffect(() => {
+    const params = { page: 1, limit: 12, ...filters };
+    if (params.category === 'All' || params.category === '') delete params.category;
+    if (!params.search) delete params.search;
+    if (!params.minPrice) delete params.minPrice;
+    if (!params.maxPrice) delete params.maxPrice;
+    if (!params.saleType) delete params.saleType;
     dispatch(fetchArtworks(params));
-  }, [dispatch, filters]);
+  }, [filters, dispatch]);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    dispatch(setFilters({ search: searchInput }));
-  };
+  // ── Category Selection ─────────────────────────────────────────────────────
 
-  const handleCategoryClick = (cat) => {
-    dispatch(setFilters({ category: cat === 'All' ? '' : cat }));
-  };
+  const handleCategoryClick = useCallback(
+    (cat) => {
+      dispatch(setFilters({ category: cat === 'All' ? '' : cat }));
+    },
+    [dispatch]
+  );
 
-  const applyFilters = () => {
-    dispatch(setFilters(localFilters));
+  // ── Filter Actions ─────────────────────────────────────────────────────────
+
+  const applyFilters = useCallback(() => {
+    dispatch(
+      setFilters({
+        minPrice: localMinPrice,
+        maxPrice: localMaxPrice,
+        sort: localSort,
+        saleType: localSaleType,
+      })
+    );
     setShowFilters(false);
-  };
+  }, [dispatch, localMinPrice, localMaxPrice, localSort, localSaleType]);
 
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     dispatch(clearFilters());
     setSearchInput('');
-    setLocalFilters({ category: '', minPrice: '', maxPrice: '', saleType: '', sort: '-createdAt' });
-  };
+    setLocalMinPrice('');
+    setLocalMaxPrice('');
+    setLocalSort('-createdAt');
+    setLocalSaleType('');
+  }, [dispatch]);
 
-  const loadMore = () => {
+  // ── Load More ──────────────────────────────────────────────────────────────
+
+  const loadMore = useCallback(() => {
     if (pagination && pagination.page < pagination.pages) {
-      dispatch(fetchArtworks({ ...filters, page: pagination.page + 1 }));
+      dispatch(
+        fetchArtworks({ ...filters, page: pagination.page + 1, limit: 12 })
+      );
     }
-  };
+  }, [dispatch, filters, pagination]);
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.06 },
-    },
-  };
+  // ── Computed ───────────────────────────────────────────────────────────────
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-  };
+  const activeCategory = filters.category || 'All';
+  const totalArtworks = pagination?.total ?? 0;
+  const showingCount = artworks?.length ?? 0;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-12">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-12"
-        >
-          <h1 className={`font-display text-4xl sm:text-5xl font-bold mb-4 ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-            The <span className="text-gallery-accent">Gallery</span>
-          </h1>
-          <p className={`text-base max-w-xl mx-auto ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-            Browse our curated collection of digital masterpieces from talented artists worldwide
-          </p>
-        </motion.div>
+    <PageTransition>
+      <div className="min-h-screen">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
 
-        {/* Search Bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="mb-8"
-        >
-          <form onSubmit={handleSearch} className="flex gap-3 max-w-2xl mx-auto">
-            <div className="relative flex-1">
-              <HiMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gallery-textMuted" />
-              <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Search artworks, artists, styles..."
-                className="input-field pl-12"
-              />
+          {/* ── Header ──────────────────────────────────────────────────── */}
+          <motion.header
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+            className="text-center mb-10"
+          >
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-3">
+              <span className="text-gradient">Marketplace</span>
+            </h1>
+            <p
+              className={`text-base sm:text-lg max-w-xl mx-auto leading-relaxed ${
+                isDark ? 'text-gallery-darkTextSecondary' : 'text-gallery-textSecondary'
+              }`}
+            >
+              Discover and collect extraordinary digital art
+            </p>
+          </motion.header>
+
+          {/* ── Search Bar ──────────────────────────────────────────────── */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="relative max-w-2xl mx-auto mb-8"
+          >
+            <HiMagnifyingGlass
+              className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none ${
+                isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'
+              }`}
+            />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search artworks, artists, styles..."
+              className="input-field pl-12 pr-12 py-4 text-base"
+            />
+            {searchInput && (
+              <button
+                onClick={() => setSearchInput('')}
+                className={`absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-colors ${
+                  isDark
+                    ? 'text-gallery-darkTextMuted hover:text-gallery-darkText hover:bg-white/5'
+                    : 'text-gallery-textMuted hover:text-gallery-text hover:bg-black/5'
+                }`}
+              >
+                <HiXMark className="w-4 h-4" />
+              </button>
+            )}
+          </motion.div>
+
+          {/* ── Category Pills ──────────────────────────────────────────── */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+            className="mb-8 -mx-4 px-4"
+          >
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              {CATEGORIES.map((cat) => {
+                const isActive = activeCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => handleCategoryClick(cat)}
+                    className={`flex-shrink-0 px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
+                      isActive
+                        ? 'bg-brand-terracotta text-white shadow-md shadow-brand-terracotta/25'
+                        : isDark
+                          ? 'bg-gallery-darkSurface text-gallery-darkTextSecondary hover:text-gallery-darkText hover:bg-gallery-darkCard'
+                          : 'bg-gallery-surface text-gallery-textSecondary hover:text-gallery-text hover:bg-gallery-card'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
             </div>
-            <button type="submit" className="btn-primary px-6">
-              Search
-            </button>
+          </motion.div>
+
+          {/* ── Filter Toggle ───────────────────────────────────────────── */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            className="flex items-center justify-between mb-6"
+          >
             <button
-              type="button"
-              onClick={() => setShowFilters(!showFilters)}
-              className={`p-3 rounded-lg border transition-all ${
-                showFilters
-                  ? 'bg-gallery-accent text-gallery-dark border-gallery-accent'
-                  : isDark
-                    ? 'border-gallery-darkBorder text-gallery-textMuted hover:border-gallery-accent/50'
-                    : 'border-gallery-lightBorder text-gallery-textDarkMuted hover:border-gallery-accent/50'
+              onClick={() => setShowFilters((prev) => !prev)}
+              className={`btn-ghost gap-2 text-sm ${
+                showFilters ? 'text-brand-terracotta' : ''
               }`}
             >
               <HiAdjustmentsHorizontal className="w-5 h-5" />
+              Filters
+              {showFilters && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="w-1.5 h-1.5 rounded-full bg-brand-terracotta"
+                />
+              )}
             </button>
-          </form>
-        </motion.div>
 
-        {/* Category Pills */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.15 }}
-          className="flex flex-wrap justify-center gap-2 mb-8"
-        >
-          {categories.map((cat) => {
-            const isActive = (cat === 'All' && !filters.category) || filters.category === cat;
-            return (
-              <button
-                key={cat}
-                onClick={() => handleCategoryClick(cat)}
-                className={`px-4 py-2 rounded-full text-xs font-medium border transition-all duration-200 ${
-                  isActive
-                    ? 'bg-gallery-accent text-gallery-dark border-gallery-accent'
-                    : isDark
-                      ? 'border-gallery-darkBorder text-gallery-textMuted hover:border-gallery-accent/50 hover:text-gallery-text'
-                      : 'border-gallery-lightBorder text-gallery-textDarkMuted hover:border-gallery-accent/50 hover:text-gallery-textDark'
-                }`}
-              >
-                {cat}
-              </button>
-            );
-          })}
-        </motion.div>
-
-        {/* Filter Panel */}
-        {showFilters && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className={`mb-8 p-6 rounded-xl border ${isDark ? 'bg-gallery-darkCard border-gallery-darkBorder' : 'bg-gallery-lightCard border-gallery-lightBorder'}`}
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-                  Min Price (₹)
-                </label>
-                <input
-                  type="number"
-                  value={localFilters.minPrice}
-                  onChange={(e) => setLocalFilters((p) => ({ ...p, minPrice: e.target.value }))}
-                  placeholder="0"
-                  className="input-field text-sm"
-                />
-              </div>
-              <div>
-                <label className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-                  Max Price (₹)
-                </label>
-                <input
-                  type="number"
-                  value={localFilters.maxPrice}
-                  onChange={(e) => setLocalFilters((p) => ({ ...p, maxPrice: e.target.value }))}
-                  placeholder="No limit"
-                  className="input-field text-sm"
-                />
-              </div>
-              <div>
-                <label className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-                  Sort By
-                </label>
-                <select
-                  value={localFilters.sort}
-                  onChange={(e) => setLocalFilters((p) => ({ ...p, sort: e.target.value }))}
-                  className="input-field text-sm"
-                >
-                  {sortOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-3 mt-4">
-              <button onClick={applyFilters} className="btn-primary text-sm px-5 py-2">Apply Filters</button>
-              <button onClick={handleClearFilters} className="btn-ghost text-sm">Clear All</button>
-            </div>
+            {/* Active filter count */}
+            <p
+              className={`text-sm ${
+                isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'
+              }`}
+            >
+              {isLoading
+                ? 'Searching...'
+                : `${totalArtworks} artwork${totalArtworks !== 1 ? 's' : ''} found`}
+            </p>
           </motion.div>
-        )}
 
-        {/* Results Count */}
-        <div className={`flex items-center justify-between mb-6 ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-          <span className="text-sm">
-            {pagination ? `${pagination.total} artworks found` : 'Loading...'}
-          </span>
-        </div>
-
-        {/* Artwork Grid */}
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className={`rounded-xl overflow-hidden ${isDark ? 'bg-gallery-darkCard' : 'bg-gallery-lightSurface'}`}>
-                <div className="aspect-[3/4] animate-pulse bg-gallery-darkSurface" />
-                <div className="p-4 space-y-2">
-                  <div className={`h-4 rounded animate-pulse ${isDark ? 'bg-gallery-darkSurface' : 'bg-gallery-lightBorder'}`} />
-                  <div className={`h-3 rounded w-2/3 animate-pulse ${isDark ? 'bg-gallery-darkSurface' : 'bg-gallery-lightBorder'}`} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : artworks.length === 0 ? (
-          <div className="text-center py-20">
-            <HiSparkles className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`} />
-            <p className={`text-lg font-display font-semibold mb-2 ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-              No artworks found
-            </p>
-            <p className={`text-sm ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-              Try adjusting your search or filters
-            </p>
-          </div>
-        ) : (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-          >
-            {artworks.map((artwork) => (
-              <motion.div key={artwork._id} variants={itemVariants}>
-                <Link
-                  to={`/artwork/${artwork._id}`}
-                  className={`group block rounded-xl overflow-hidden border transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl ${
-                    isDark
-                      ? 'bg-gallery-darkCard border-gallery-darkBorder hover:border-gallery-accent/20 hover:shadow-gallery-accent/5'
-                      : 'bg-gallery-lightCard border-gallery-lightBorder hover:border-gallery-accent/20 hover:shadow-gallery-accent/10'
+          {/* ── Expandable Filter Panel ──────────────────────────────────── */}
+          <AnimatePresence>
+            {showFilters && (
+              <motion.div
+                key="filter-panel"
+                variants={filterPanelVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="overflow-hidden"
+              >
+                <div
+                  className={`card p-6 rounded-2xl ${
+                    isDark ? 'border-gallery-darkBorder' : 'border-gallery-border'
                   }`}
                 >
-                  {/* Image */}
-                  <div className="relative aspect-[3/4] overflow-hidden">
-                    {artwork.images?.preview || artwork.images?.thumbnail ? (
-                      <img
-                        src={artwork.images.preview || artwork.images.thumbnail}
-                        alt={artwork.title}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className={`w-full h-full flex items-center justify-center ${isDark ? 'bg-gallery-darkSurface' : 'bg-gallery-lightSurface'}`}>
-                        <HiSparkles className="w-10 h-10 text-gallery-accent/30" />
-                      </div>
-                    )}
-
-                    {/* Overlay on hover */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-                    {/* Badges */}
-                    <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                      {artwork.isLimitedEdition && (
-                        <span className="px-2 py-0.5 rounded-md bg-gallery-accent/90 text-gallery-dark text-[10px] font-bold uppercase tracking-wider">
-                          Edition {artwork.editionsSold}/{artwork.totalEditions}
-                        </span>
-                      )}
-                      {artwork.saleType === 'auction' && (
-                        <span className="px-2 py-0.5 rounded-md bg-purple-500/90 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                          <HiClock className="w-3 h-3" /> Auction
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Quick Actions */}
-                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <button
-                        onClick={(e) => { e.preventDefault(); }}
-                        className="p-2 rounded-lg bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors"
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    {/* Min Price */}
+                    <div>
+                      <label
+                        className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${
+                          isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'
+                        }`}
                       >
-                        <HiHeart className="w-4 h-4" />
-                      </button>
+                        Min Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={localMinPrice}
+                        onChange={(e) => setLocalMinPrice(e.target.value)}
+                        placeholder="0"
+                        className="input-field"
+                      />
                     </div>
 
-                    {/* Price tag on hover */}
-                    <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <span className="text-white font-display text-lg font-bold">
-                        ₹{Number(artwork.price).toLocaleString('en-IN')}
-                      </span>
-                      <span className="text-white/70 text-xs flex items-center gap-1">
-                        <HiEye className="w-3 h-3" />
-                        {artwork.viewCount || 0}
-                      </span>
+                    {/* Max Price */}
+                    <div>
+                      <label
+                        className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${
+                          isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'
+                        }`}
+                      >
+                        Max Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={localMaxPrice}
+                        onChange={(e) => setLocalMaxPrice(e.target.value)}
+                        placeholder="No limit"
+                        className="input-field"
+                      />
+                    </div>
+
+                    {/* Sort */}
+                    <div>
+                      <label
+                        className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${
+                          isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'
+                        }`}
+                      >
+                        Sort By
+                      </label>
+                      <select
+                        value={localSort}
+                        onChange={(e) => setLocalSort(e.target.value)}
+                        className="input-field"
+                      >
+                        {SORT_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Sale Type */}
+                    <div>
+                      <label
+                        className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${
+                          isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'
+                        }`}
+                      >
+                        Sale Type
+                      </label>
+                      <div className="flex gap-2">
+                        {SALE_TYPES.map((type) => {
+                          const active = localSaleType === type.value;
+                          return (
+                            <button
+                              key={type.value}
+                              onClick={() => setLocalSaleType(type.value)}
+                              className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 ${
+                                active
+                                  ? 'bg-brand-terracotta text-white shadow-sm'
+                                  : isDark
+                                    ? 'bg-gallery-darkSurface text-gallery-darkTextSecondary hover:bg-gallery-darkCard'
+                                    : 'bg-gallery-surface text-gallery-textSecondary hover:bg-gallery-card'
+                              }`}
+                            >
+                              {type.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Info */}
-                  <div className="p-4">
-                    <h3 className={`font-display font-semibold text-sm truncate ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-                      {artwork.title}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-2">
-                      {artwork.artist?.profileImage ? (
-                        <img src={artwork.artist.profileImage} alt="" className="w-5 h-5 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-5 h-5 rounded-full bg-gallery-accent/20 flex items-center justify-center">
-                          <span className="text-[8px] font-bold text-gallery-accent">
-                            {artwork.artist?.name?.[0] || '?'}
-                          </span>
-                        </div>
-                      )}
-                      <span className={`text-xs ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
-                        {artwork.artist?.name || 'Unknown Artist'}
-                      </span>
-                      {artwork.artist?.isVerifiedArtist && (
-                        <HiSparkles className="w-3 h-3 text-gallery-accent" />
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between mt-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-md ${isDark ? 'bg-gallery-darkSurface text-gallery-textMuted' : 'bg-gallery-lightSurface text-gallery-textDarkMuted'}`}>
-                        {artwork.category}
-                      </span>
-                      <span className="text-gallery-accent font-semibold text-sm">
-                        ₹{Number(artwork.price).toLocaleString('en-IN')}
-                      </span>
-                    </div>
+                  {/* Filter Actions */}
+                  <div className="flex items-center gap-3 mt-6 pt-5 border-t border-gallery-border dark-theme:border-gallery-darkBorder">
+                    <button onClick={applyFilters} className="btn-primary px-8">
+                      Apply
+                    </button>
+                    <button onClick={handleClearFilters} className="btn-ghost">
+                      Clear
+                    </button>
                   </div>
-                </Link>
+                </div>
               </motion.div>
-            ))}
-          </motion.div>
-        )}
+            )}
+          </AnimatePresence>
 
-        {/* Load More */}
-        {pagination && pagination.page < pagination.pages && (
-          <div className="text-center mt-12">
-            <button onClick={loadMore} className="btn-secondary">
-              Load More Artworks
-            </button>
-          </div>
-        )}
+          {/* ── Artwork Grid ─────────────────────────────────────────────── */}
+          {isLoading ? (
+            /* Loading Skeletons */
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[...Array(8)].map((_, i) => (
+                <ArtworkCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : artworks.length === 0 ? (
+            /* Empty State */
+            <EmptyState
+              icon={HiMagnifyingGlass}
+              title="No artworks found"
+              description="Try adjusting your filters or search terms to discover more art."
+              action={
+                <button onClick={handleClearFilters} className="btn-secondary mt-2">
+                  Clear Filters
+                </button>
+              }
+            />
+          ) : (
+            /* Artwork Cards */
+            <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {artworks.map((artwork) => {
+                const isSoldOut =
+                  artwork.isLimitedEdition &&
+                  artwork.editionsSold >= artwork.totalEditions;
+
+                return (
+                  <StaggerItem key={artwork._id}>
+                    <Link
+                      to={`/artwork/${artwork._id}`}
+                      className="block group relative"
+                    >
+                      <div className="card overflow-hidden hover-tilt">
+                        {/* ── Image ────────────────────────────────────── */}
+                        <div className="relative aspect-[3/4] overflow-hidden rounded-t-2xl">
+                          {artwork.images?.preview || artwork.images?.thumbnail ? (
+                            <img
+                              src={artwork.images.preview || artwork.images.thumbnail}
+                              alt={artwork.title}
+                              className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div
+                              className={`w-full h-full flex items-center justify-center ${
+                                isDark ? 'bg-gallery-darkSurface' : 'bg-gallery-surface'
+                              }`}
+                            >
+                              <span
+                                className={`text-4xl ${
+                                  isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'
+                                }`}
+                                style={{ opacity: 0.3 }}
+                              >
+                                🎨
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Hover gradient overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                          {/* Badges (top-left) */}
+                          <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+                            {artwork.saleType === 'auction' && (
+                              <Badge variant="lavender" size="xs">
+                                Auction
+                              </Badge>
+                            )}
+                            {artwork.isLimitedEdition && (
+                              <Badge variant="gold" size="xs">
+                                Limited · {artwork.editionsSold}/{artwork.totalEditions}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Hover price tag (bottom-left) */}
+                          <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-2 group-hover:translate-y-0">
+                            <span className="text-white font-display text-lg font-bold drop-shadow-lg">
+                              ₹{Number(artwork.price || 0).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+
+                          {/* Sold Out overlay */}
+                          {isSoldOut && (
+                            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
+                              <span className="bg-white/90 text-gallery-text font-display font-bold text-sm px-5 py-2 rounded-full tracking-wider uppercase shadow-lg">
+                                Sold Out
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* ── Content ──────────────────────────────────── */}
+                        <div className="p-4">
+                          {/* Title */}
+                          <h3
+                            className={`font-semibold text-sm truncate mb-2 ${
+                              isDark ? 'text-gallery-darkText' : 'text-gallery-text'
+                            }`}
+                          >
+                            {artwork.title}
+                          </h3>
+
+                          {/* Artist row */}
+                          <div className="flex items-center gap-2 mb-3">
+                            <Avatar
+                              name={artwork.artist?.name || 'Unknown'}
+                              image={artwork.artist?.profileImage}
+                              size="xs"
+                            />
+                            <span
+                              className={`text-xs truncate ${
+                                isDark
+                                  ? 'text-gallery-darkTextSecondary'
+                                  : 'text-gallery-textSecondary'
+                              }`}
+                            >
+                              {artwork.artist?.name || 'Unknown Artist'}
+                            </span>
+                          </div>
+
+                          {/* Price + badges row */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-brand-terracotta font-bold text-sm">
+                              ₹{Number(artwork.price || 0).toLocaleString('en-IN')}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {artwork.saleType === 'auction' && (
+                                <Badge variant="lavender" size="xs">
+                                  Auction
+                                </Badge>
+                              )}
+                              {artwork.isLimitedEdition && !isSoldOut && (
+                                <Badge variant="gold" size="xs">
+                                  Limited
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  </StaggerItem>
+                );
+              })}
+            </StaggerContainer>
+          )}
+
+          {/* ── Load More ────────────────────────────────────────────────── */}
+          {!isLoading && pagination && pagination.page < pagination.pages && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+              className="text-center mt-12"
+            >
+              <button onClick={loadMore} className="btn-secondary px-10">
+                Load More
+              </button>
+              <p
+                className={`text-xs mt-3 ${
+                  isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'
+                }`}
+              >
+                Showing {showingCount} of {totalArtworks} artworks
+              </p>
+            </motion.div>
+          )}
+
+          {/* Show count when all loaded */}
+          {!isLoading && artworks.length > 0 && pagination && pagination.page >= pagination.pages && (
+            <p
+              className={`text-center text-xs mt-8 ${
+                isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'
+              }`}
+            >
+              Showing {showingCount} of {totalArtworks} artworks
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </PageTransition>
   );
 };
 

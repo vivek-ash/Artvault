@@ -10,7 +10,7 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import api from '../utils/api';
 
-const COLORS = ['#c9a84c', '#a78bfa', '#34d399', '#f97316', '#ec4899', '#3b82f6'];
+const COLORS = ['#c45d3e', '#2a7d6e', '#8b7ec8', '#e8856c', '#c9a84c', '#3a9d8c'];
 
 const ArtistAnalytics = () => {
   const { isDark } = useTheme();

@@ -27,7 +27,7 @@ const sendWelcomeEmail = async (to, name, role) => {
               : 'Explore our curated gallery and discover unique digital art.'}
           </p>
           <div style="text-align: center; margin-top: 32px;">
-            <a href="${process.env.CLIENT_URL}" style="display: inline-block; background: #c9a84c; color: #121212; padding: 14px 32px; border-radius: 10px; text-decoration: none; font-weight: 600;">
+            <a href="${role === 'artist' ? `${process.env.CLIENT_URL}/dashboard/artist` : `${process.env.CLIENT_URL}/marketplace`}" style="display: inline-block; background: #c9a84c; color: #121212; padding: 14px 32px; border-radius: 10px; text-decoration: none; font-weight: 600;">
               ${role === 'artist' ? 'Go to Studio' : 'Browse Gallery'}
             </a>
           </div>

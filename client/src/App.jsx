@@ -1,117 +1,120 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useEffect, lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Provider, useDispatch } from 'react-redux';
 import { Toaster } from 'react-hot-toast';
-import { useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { store } from './store/store';
 import { ThemeProvider } from './context/ThemeContext';
 import { getMe } from './features/auth/authSlice';
+
+// Layouts
 import MainLayout from './layouts/MainLayout';
+
+// Pages - Code Splitted via Lazy Loading
+const Home = lazy(() => import('./pages/Home'));
+const Marketplace = lazy(() => import('./pages/Marketplace'));
+const ArtworkDetail = lazy(() => import('./pages/ArtworkDetail'));
+const ArtistProfile = lazy(() => import('./pages/ArtistProfile'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Profile = lazy(() => import('./pages/Profile'));
+const ArtistDashboard = lazy(() => import('./pages/ArtistDashboard'));
+const BuyerDashboard = lazy(() => import('./pages/BuyerDashboard'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Cart = lazy(() => import('./pages/Cart'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+
+// Components
 import ProtectedRoute from './components/ProtectedRoute';
+import { MouseTrailer, GlowingBackdrop } from './components/ui';
 
-// Pages
-import Home from './pages/Home';
-import Marketplace from './pages/Marketplace';
-import ArtworkDetail from './pages/ArtworkDetail';
-import ArtistProfile from './pages/ArtistProfile';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ArtistDashboard from './pages/ArtistDashboard';
-import BuyerDashboard from './pages/BuyerDashboard';
-import AdminDashboard from './pages/AdminDashboard';
-import Cart from './pages/Cart';
-import Profile from './pages/Profile';
-import NotFound from './pages/NotFound';
-
-// Auth initializer — checks for existing session on app load
-function AuthInitializer({ children }) {
+// Auth initializer — restores session from token
+const AuthInitializer = ({ children }) => {
   const dispatch = useDispatch();
 
   useEffect(() => {
-    dispatch(getMe());
+    const token = localStorage.getItem('artvault_token');
+    if (token) {
+      dispatch(getMe());
+    }
   }, [dispatch]);
 
   return children;
-}
+};
 
-function App() {
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="w-8 h-8 border-2 border-brand-terracotta border-t-transparent rounded-full animate-spin"></div>
+  </div>
+);
+
+const App = () => {
   return (
     <Provider store={store}>
       <ThemeProvider>
-        <Router>
+        <BrowserRouter>
           <AuthInitializer>
+            <MouseTrailer />
+            <GlowingBackdrop />
             <Toaster
               position="top-right"
               toastOptions={{
                 duration: 4000,
                 style: {
-                  background: '#242424',
-                  color: '#faf8f5',
-                  border: '1px solid #2e2e2e',
                   borderRadius: '12px',
+                  padding: '12px 16px',
                   fontSize: '14px',
+                  fontFamily: 'Inter, system-ui, sans-serif',
                 },
               }}
             />
-            <Routes>
-              <Route path="/" element={<MainLayout />}>
-                {/* Public routes */}
-                <Route index element={<Home />} />
-                <Route path="marketplace" element={<Marketplace />} />
-                <Route path="artwork/:id" element={<ArtworkDetail />} />
-                <Route path="artist/:id" element={<ArtistProfile />} />
-                <Route path="login" element={<Login />} />
-                <Route path="register" element={<Register />} />
-                <Route path="cart" element={<Cart />} />
 
-                {/* Protected routes — any authenticated user */}
-                <Route
-                  path="profile"
-                  element={
-                    <ProtectedRoute>
-                      <Profile />
-                    </ProtectedRoute>
-                  }
-                />
+            <AnimatePresence mode="wait">
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/" element={<MainLayout />}>
+                    <Route index element={<Home />} />
+                    <Route path="marketplace" element={<Marketplace />} />
+                    <Route path="artwork/:id" element={<ArtworkDetail />} />
+                    <Route path="artist/:id" element={<ArtistProfile />} />
+                    <Route path="login" element={<Login />} />
+                    <Route path="register" element={<Register />} />
+                    <Route path="cart" element={<Cart />} />
 
-                {/* Artist-only routes */}
-                <Route
-                  path="dashboard/artist"
-                  element={
-                    <ProtectedRoute roles={['artist']}>
-                      <ArtistDashboard />
-                    </ProtectedRoute>
-                  }
-                />
+                    {/* Protected routes — any authenticated user */}
+                    <Route path="profile" element={
+                      <ProtectedRoute><Profile /></ProtectedRoute>
+                    } />
+                    <Route path="notifications" element={
+                      <ProtectedRoute><Notifications /></ProtectedRoute>
+                    } />
 
-                {/* Buyer-only routes */}
-                <Route
-                  path="dashboard/buyer"
-                  element={
-                    <ProtectedRoute roles={['buyer']}>
-                      <BuyerDashboard />
-                    </ProtectedRoute>
-                  }
-                />
+                    {/* Artist dashboard */}
+                    <Route path="dashboard/artist" element={
+                      <ProtectedRoute roles={['artist']}><ArtistDashboard /></ProtectedRoute>
+                    } />
 
-                {/* Admin-only routes */}
-                <Route
-                  path="admin"
-                  element={
-                    <ProtectedRoute roles={['admin']}>
-                      <AdminDashboard />
-                    </ProtectedRoute>
-                  }
-                />
+                    <Route path="dashboard/buyer" element={
+                      <ProtectedRoute roles={['buyer', 'artist']}><BuyerDashboard /></ProtectedRoute>
+                    } />
 
-                {/* 404 */}
-                <Route path="*" element={<NotFound />} />
-              </Route>
-            </Routes>
+                    {/* Admin dashboard */}
+                    <Route path="admin" element={
+                      <ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>
+                    } />
+
+                    {/* 404 */}
+                    <Route path="*" element={<NotFound />} />
+                  </Route>
+                </Routes>
+              </Suspense>
+            </AnimatePresence>
           </AuthInitializer>
-        </Router>
+        </BrowserRouter>
       </ThemeProvider>
     </Provider>
   );
-}
+};
 
 export default App;

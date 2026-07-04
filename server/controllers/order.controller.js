@@ -180,10 +180,7 @@ exports.getMyOrders = async (req, res, next) => {
     const { page = 1, limit = 20 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const query =
-      req.user.role === 'artist'
-        ? { artist: req.user._id }
-        : { buyer: req.user._id };
+    const query = { buyer: req.user._id };
 
     const [orders, total] = await Promise.all([
       Order.find(query)

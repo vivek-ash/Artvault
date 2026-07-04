@@ -147,7 +147,7 @@ exports.getArtwork = async (req, res, next) => {
   try {
     const artwork = await Artwork.findById(req.params.id)
       .select('-images.original -gallery.original')
-      .populate('artist', 'name profileImage bio socialLinks isVerifiedArtist followers');
+      .populate('artist', 'name profileImage bio socialLinks isVerifiedArtist');
 
     if (!artwork) {
       return next(new ErrorResponse('Artwork not found', 404));

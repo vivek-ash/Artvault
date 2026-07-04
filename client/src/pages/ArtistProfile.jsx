@@ -1,185 +1,266 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { HiShieldCheck, HiGlobeAlt, HiSparkles, HiUserPlus, HiPhoto } from 'react-icons/hi2';
+import { HiShieldCheck, HiGlobeAlt, HiUserPlus, HiCheck } from 'react-icons/hi2';
+import { FaTwitter, FaInstagram, FaBehance } from 'react-icons/fa';
+import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
 import api from '../utils/api';
+import { PageTransition, Avatar, Badge, EmptyState, StaggerContainer, StaggerItem, ArtworkCardSkeleton, Modal } from '../components/ui';
 
 const ArtistProfile = () => {
   const { id } = useParams();
   const { isDark } = useTheme();
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useSelector(s => s.auth);
+  const [commissionOpen, setCommissionOpen] = useState(false);
+  const [commForm, setCommForm] = useState({ title: '', description: '', budget: '', deadline: '' });
+  const [commSubmitting, setCommSubmitting] = useState(false);
   const [artist, setArtist] = useState(null);
   const [artworks, setArtworks] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [following, setFollowing] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setIsLoading(true);
-        const [userRes, artRes] = await Promise.all([
+        const [artistRes, artworksRes] = await Promise.all([
           api.get(`/api/users/${id}`),
-          api.get(`/api/artworks?artist=${id}`),
+          api.get(`/api/artworks?artist=${id}&status=published`),
         ]);
-        setArtist(userRes.data.data);
-        setArtworks(artRes.data.data || []);
-      } catch (err) {
-        console.error('Failed to load artist profile', err);
-      } finally {
-        setIsLoading(false);
-      }
+        setArtist(artistRes.data.user);
+        setArtworks(artworksRes.data.data || []);
+        if (user?.following?.some(f => (f._id || f) === id)) setFollowing(true);
+      } catch (err) { toast.error('Failed to load artist profile'); }
+      finally { setLoading(false); }
     };
     fetchData();
-  }, [id]);
+  }, [id, user]);
 
-  if (isLoading) {
+  const handleFollow = async () => {
+    if (!isAuthenticated) {
+      toast.error('Please login to follow artists');
+      navigate('/login');
+      return;
+    }
+    try {
+      if (following) {
+        await api.delete(`/api/users/${id}/follow`);
+        setFollowing(false);
+        setArtist(prev => ({ ...prev, followers: prev.followers?.filter(f => f !== user._id) }));
+        toast.success('Unfollowed');
+      } else {
+        await api.post(`/api/users/${id}/follow`);
+        setFollowing(true);
+        setArtist(prev => ({ ...prev, followers: [...(prev.followers || []), user._id] }));
+        toast.success('Following!');
+      }
+    } catch (err) { toast.error(err.response?.data?.error || 'Failed'); }
+  };
+
+  const handleCommissionClick = () => {
+    if (!isAuthenticated) {
+      toast.error('Please login to request commissions');
+      navigate('/login');
+      return;
+    }
+    if (user?.role !== 'buyer') {
+      toast.error('Only collectors can request commissions');
+      return;
+    }
+    setCommissionOpen(true);
+  };
+
+  const handleCommissionSubmit = async (e) => {
+    e.preventDefault();
+    if (!isAuthenticated) { toast.error('Please login first'); return; }
+    if (user?.role !== 'buyer') { toast.error('Only collectors can request commissions'); return; }
+    setCommSubmitting(true);
+    try {
+      await api.post('/api/commissions', {
+        artistId: id,
+        ...commForm
+      });
+      toast.success('Commission request sent successfully!');
+      setCommissionOpen(false);
+      setCommForm({ title: '', description: '', budget: '', deadline: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to send request');
+    } finally {
+      setCommSubmitting(false);
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gallery-accent border-t-transparent rounded-full animate-spin" />
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="skeleton h-48 rounded-2xl mb-6" />
+        <div className="skeleton h-32 rounded-2xl" />
       </div>
     );
   }
 
   if (!artist) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className={isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}>Artist not found</p>
-      </div>
-    );
+    return <EmptyState title="Artist not found" description="This profile doesn't exist" />;
   }
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Banner */}
-      <div className="relative h-48 sm:h-64 bg-gradient-to-r from-gallery-accent/20 via-purple-500/10 to-amber-500/20">
-        <div className="absolute inset-0 bg-gradient-to-t from-gallery-dark/80 to-transparent" />
-      </div>
+    <PageTransition>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        {/* Hero Banner */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="h-48 rounded-2xl overflow-hidden relative"
+          style={{ background: 'linear-gradient(135deg, rgba(196,93,62,0.15) 0%, rgba(139,126,200,0.15) 50%, rgba(42,125,110,0.1) 100%)' }}>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+        </motion.div>
 
-      <div className="max-w-7xl mx-auto px-6 lg:px-8">
         {/* Profile Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className={`-mt-20 relative z-10 p-6 sm:p-8 rounded-2xl border mb-12 ${isDark ? 'bg-gallery-darkCard border-gallery-darkBorder' : 'bg-gallery-lightCard border-gallery-lightBorder'}`}
-        >
-          <div className="flex flex-col sm:flex-row gap-6 items-start">
-            {/* Avatar */}
-            {artist.profileImage ? (
-              <img src={artist.profileImage} alt={artist.name} className="w-24 h-24 rounded-full object-cover border-4 border-gallery-accent/30" />
-            ) : (
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gallery-accent to-amber-600 flex items-center justify-center text-gallery-dark text-3xl font-bold font-display">
-                {artist.name?.[0]}
-              </div>
-            )}
-
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+          className="card p-6 -mt-16 mx-4 relative z-10">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+            <Avatar name={artist.name} image={artist.profileImage} size="xl" className="-mt-14 sm:-mt-12 ring-4 ring-gallery-card" />
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h1 className={`font-display text-2xl sm:text-3xl font-bold ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-                  {artist.name}
-                </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="font-display text-2xl font-bold">{artist.name}</h1>
                 {artist.isVerifiedArtist && (
-                  <HiShieldCheck className="w-6 h-6 text-gallery-accent" />
+                  <Badge variant="gold" size="xs"><HiShieldCheck className="w-3.5 h-3.5" /> Verified</Badge>
                 )}
               </div>
-
               {artist.bio && (
-                <p className={`text-sm mt-2 max-w-2xl leading-relaxed ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>
+                <p className={`text-sm mt-2 max-w-lg ${isDark ? 'text-gallery-darkTextSecondary' : 'text-gallery-textSecondary'}`}>
                   {artist.bio}
                 </p>
               )}
-
-              {/* Stats */}
-              <div className="flex gap-6 mt-4">
-                {[
-                  { label: 'Artworks', value: artworks.length },
-                  { label: 'Followers', value: artist.followersCount || artist.followers?.length || 0 },
-                  { label: 'Following', value: artist.followingCount || artist.following?.length || 0 },
-                ].map((s) => (
-                  <div key={s.label}>
-                    <p className="text-gallery-accent font-bold text-lg font-display">{s.value}</p>
-                    <p className={`text-xs ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>{s.label}</p>
-                  </div>
-                ))}
+              <div className={`flex items-center gap-4 mt-3 text-sm ${isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'}`}>
+                <span><strong className={isDark ? 'text-gallery-darkText' : 'text-gallery-text'}>{artworks.length}</strong> artworks</span>
+                <span><strong className={isDark ? 'text-gallery-darkText' : 'text-gallery-text'}>{artist.followers?.length || 0}</strong> followers</span>
+                <span><strong className={isDark ? 'text-gallery-darkText' : 'text-gallery-text'}>{artist.following?.length || 0}</strong> following</span>
               </div>
 
               {/* Social Links */}
-              {artist.socialLinks && Object.values(artist.socialLinks).some(Boolean) && (
-                <div className="flex gap-2 mt-4">
+              {(artist.socialLinks?.website || artist.socialLinks?.twitter || artist.socialLinks?.instagram || artist.socialLinks?.behance) && (
+                <div className="flex items-center gap-2 mt-3">
                   {artist.socialLinks.website && (
-                    <a href={artist.socialLinks.website} target="_blank" rel="noreferrer" className="p-2 rounded-lg bg-gallery-accent/10 text-gallery-accent hover:bg-gallery-accent/20 transition-colors">
+                    <a href={artist.socialLinks.website} target="_blank" rel="noreferrer" className="btn-ghost !p-2 !rounded-lg">
                       <HiGlobeAlt className="w-4 h-4" />
+                    </a>
+                  )}
+                  {artist.socialLinks.twitter && (
+                    <a href={`https://twitter.com/${artist.socialLinks.twitter}`} target="_blank" rel="noreferrer" className="btn-ghost !p-2 !rounded-lg">
+                      <FaTwitter className="w-4 h-4" />
+                    </a>
+                  )}
+                  {artist.socialLinks.instagram && (
+                    <a href={`https://instagram.com/${artist.socialLinks.instagram}`} target="_blank" rel="noreferrer" className="btn-ghost !p-2 !rounded-lg">
+                      <FaInstagram className="w-4 h-4" />
+                    </a>
+                  )}
+                  {artist.socialLinks.behance && (
+                    <a href={`https://behance.net/${artist.socialLinks.behance}`} target="_blank" rel="noreferrer" className="btn-ghost !p-2 !rounded-lg">
+                      <FaBehance className="w-4 h-4" />
                     </a>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Follow Button */}
-            <button className="btn-primary flex items-center gap-2 shrink-0">
-              <HiUserPlus className="w-5 h-5" />
-              Follow
-            </button>
+            {user?._id !== artist._id && (
+              <div className="flex gap-3">
+                {(!isAuthenticated || user?.role === 'buyer') && (
+                  <button onClick={handleCommissionClick} className="btn-secondary">
+                    Commission
+                  </button>
+                )}
+                <button onClick={handleFollow}
+                  className={following ? 'btn-ghost flex items-center gap-1.5 text-brand-teal' : 'btn-primary'}>
+                  {following ? <><HiCheck className="w-4 h-4" /> Following</> : <><HiUserPlus className="w-4 h-4" /> Follow</>}
+                </button>
+              </div>
+            )}
           </div>
         </motion.div>
 
-        {/* Artworks Grid */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="pb-16"
-        >
-          <h2 className={`font-display text-xl font-semibold mb-8 ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-            Artworks by {artist.name}
-          </h2>
-
+        {/* Artworks */}
+        <div className="mt-10">
+          <h2 className="font-display text-heading mb-6">Artworks by {artist.name}</h2>
           {artworks.length === 0 ? (
-            <div className={`text-center py-20 rounded-xl border border-dashed ${isDark ? 'border-gallery-darkBorder' : 'border-gallery-lightBorder'}`}>
-              <HiPhoto className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`} />
-              <p className={`text-sm ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>No artworks published yet</p>
-            </div>
+            <EmptyState title="No artworks yet" description="This artist hasn't published any artworks" />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {artworks.map((artwork, idx) => (
-                <motion.div
-                  key={artwork._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                >
-                  <Link
-                    to={`/artwork/${artwork._id}`}
-                    className={`group block rounded-xl overflow-hidden border transition-all duration-500 hover:-translate-y-1 ${isDark ? 'bg-gallery-darkCard border-gallery-darkBorder hover:shadow-xl hover:shadow-gallery-accent/5' : 'bg-gallery-lightCard border-gallery-lightBorder hover:shadow-lg'}`}
-                  >
-                    <div className="aspect-[4/3] overflow-hidden">
-                      <img
-                        src={artwork.images?.preview || artwork.images?.thumbnail || ''}
-                        alt={artwork.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        loading="lazy"
-                      />
+            <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {artworks.map(art => (
+                <StaggerItem key={art._id}>
+                  <Link to={`/artwork/${art._id}`} className="card overflow-hidden hover-tilt block">
+                    <div className="aspect-[3/4] overflow-hidden">
+                      <img src={art.images?.thumbnail || art.images?.preview} alt={art.title}
+                        className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
                     </div>
                     <div className="p-4">
-                      <h3 className={`font-display font-semibold text-sm truncate ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-                        {artwork.title}
-                      </h3>
-                      <div className="flex justify-between items-center mt-2">
-                        <span className={`text-xs px-2 py-0.5 rounded-md ${isDark ? 'bg-gallery-darkSurface text-gallery-textMuted' : 'bg-gallery-lightSurface text-gallery-textDarkMuted'}`}>
-                          {artwork.category}
-                        </span>
-                        <span className="text-gallery-accent font-semibold text-sm">
-                          ₹{Number(artwork.price).toLocaleString('en-IN')}
-                        </span>
-                      </div>
+                      <p className="font-semibold text-sm truncate">{art.title}</p>
+                      <p className="text-brand-terracotta font-bold text-sm mt-1">₹{art.price?.toLocaleString()}</p>
                     </div>
                   </Link>
-                </motion.div>
+                </StaggerItem>
               ))}
-            </div>
+            </StaggerContainer>
           )}
-        </motion.div>
+        </div>
       </div>
-    </div>
+
+      {/* Commission Request Modal */}
+      <Modal isOpen={commissionOpen} onClose={() => setCommissionOpen(false)} title={`Commission ${artist.name}`} size="md">
+        <form onSubmit={handleCommissionSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Project Title</label>
+            <input
+              type="text"
+              value={commForm.title}
+              onChange={e => setCommForm({ ...commForm, title: e.target.value })}
+              className="input-field"
+              placeholder="e.g. Custom Portrait, Sci-Fi Landscape"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Detailed Description</label>
+            <textarea
+              value={commForm.description}
+              onChange={e => setCommForm({ ...commForm, description: e.target.value })}
+              className="input-field min-h-[120px] resize-none"
+              placeholder="Explain the style, dimensions, references, and color scheme..."
+              required
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Budget (₹)</label>
+              <input
+                type="number"
+                value={commForm.budget}
+                onChange={e => setCommForm({ ...commForm, budget: e.target.value })}
+                className="input-field"
+                placeholder="5000"
+                min="500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Deadline (Optional)</label>
+              <input
+                type="date"
+                value={commForm.deadline}
+                onChange={e => setCommForm({ ...commForm, deadline: e.target.value })}
+                className="input-field"
+                min={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+          </div>
+          <button type="submit" disabled={commSubmitting} className="btn-primary w-full py-3 mt-2">
+            {commSubmitting ? 'Sending Request...' : 'Send Request'}
+          </button>
+        </form>
+      </Modal>
+    </PageTransition>
   );
 };
 
