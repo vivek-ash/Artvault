@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { useTheme } from '../context/ThemeContext';
 import { motion } from 'framer-motion';
 import { HiBell, HiCheck, HiHeart, HiShoppingCart, HiUserPlus, HiChatBubbleLeft, HiExclamationTriangle, HiCog6Tooth } from 'react-icons/hi2';
-import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { PageTransition, EmptyState } from '../components/ui';
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '../features/notification/notificationSlice';
 
 const typeIcons = {
   sale: HiShoppingCart,
@@ -30,43 +31,24 @@ const typeColors = {
 
 const Notifications = () => {
   const { isDark } = useTheme();
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
+  const { notifications, isLoading } = useSelector(state => state.notification);
 
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    dispatch(fetchNotifications());
+  }, [dispatch]);
 
-  const fetchNotifications = async () => {
-    try {
-      const { data } = await api.get('/api/notifications?limit=50');
-      setNotifications(data.data || []);
-    } catch (err) {
-      console.error('Failed to fetch notifications');
-    } finally {
-      setLoading(false);
-    }
+  const markAsRead = (id) => {
+    dispatch(markNotificationRead(id))
+      .unwrap()
+      .catch(() => toast.error('Failed to mark as read'));
   };
 
-  const markAsRead = async (id) => {
-    try {
-      await api.put(`/api/notifications/${id}`);
-      setNotifications((prev) =>
-        prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
-      );
-    } catch (err) {
-      toast.error('Failed to mark as read');
-    }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      await api.put('/api/notifications/read-all');
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      toast.success('All notifications marked as read');
-    } catch (err) {
-      toast.error('Failed to mark all as read');
-    }
+  const markAllAsRead = () => {
+    dispatch(markAllNotificationsRead())
+      .unwrap()
+      .then(() => toast.success('All notifications marked as read'))
+      .catch(() => toast.error('Failed to mark all as read'));
   };
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
@@ -106,7 +88,7 @@ const Notifications = () => {
         </div>
 
         {/* Notifications List */}
-        {loading ? (
+        {isLoading ? (
           <div className="space-y-3">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="skeleton h-20 rounded-2xl" />

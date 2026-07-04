@@ -1,4 +1,5 @@
 const Artwork = require('../models/Artwork');
+const User = require('../models/User');
 const ErrorResponse = require('../utils/ErrorResponse');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../middleware/upload');
 
@@ -99,7 +100,19 @@ exports.getArtworks = async (req, res, next) => {
 
     // Text search
     if (search) {
-      query.$text = { $search: search };
+      const matchingArtists = await User.find({
+        role: 'artist',
+        name: { $regex: search, $options: 'i' }
+      }).select('_id');
+      
+      const artistIds = matchingArtists.map(a => a._id);
+
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { styleTags: { $regex: search, $options: 'i' } },
+        { artist: { $in: artistIds } }
+      ];
     }
 
     // Parse sort

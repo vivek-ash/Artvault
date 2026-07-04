@@ -158,18 +158,6 @@ cd client && npm run dev
 
 ---
 
-## 👤 Test Credentials
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | `admin@artvault.com` | `Admin@123` |
-| Artist | `artist1@artvault.com` | `Artist@123` |
-| Artist | `artist2@artvault.com` | `Artist@123` |
-| Buyer | `buyer1@artvault.com` | `Buyer@123` |
-| Buyer | `buyer2@artvault.com` | `Buyer@123` |
-
----
-
 ## 🎨 Design
 
 - **Dark theme (default):** Deep charcoal `#121212`, warm off-white `#faf8f5` text, muted gold `#c9a84c` accent

@@ -229,8 +229,8 @@ const ArtistDashboard = () => {
         <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} className="mb-8" />
 
         {/* Tab Content */}
-        {activeTab === 'artworks' && (
-          isLoading ? (
+        <div className={activeTab === 'artworks' ? 'block' : 'hidden'}>
+          {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(6)].map((_, i) => <ArtworkCardSkeleton key={i} />)}
             </div>
@@ -271,13 +271,15 @@ const ArtistDashboard = () => {
                 </StaggerItem>
               ))}
             </StaggerContainer>
-          )
-        )}
+          )}
+        </div>
 
-        {activeTab === 'analytics' && <ArtistAnalytics />}
+        <div className={activeTab === 'analytics' ? 'block' : 'hidden'}>
+          <ArtistAnalytics />
+        </div>
 
-        {activeTab === 'commissions' && (
-          commissions.length === 0 ? (
+        <div className={activeTab === 'commissions' ? 'block' : 'hidden'}>
+          {commissions.length === 0 ? (
             <EmptyState icon={HiChatBubbleLeftEllipsis} title="No commissions requested yet" description="Your commission requests from collectors will show up here" />
           ) : (
             <div className="space-y-4">
@@ -317,8 +319,8 @@ const ArtistDashboard = () => {
                 </div>
               ))}
             </div>
-          )
-        )}
+          )}
+        </div>
 
         <div className="mt-12">
           <StudioSketchpad />

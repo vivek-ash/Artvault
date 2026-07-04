@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
+import { addNotification } from '../features/notification/notificationSlice';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -9,6 +10,7 @@ let socket = null;
 
 export const useSocket = () => {
   const { user, isAuthenticated } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
   const socketRef = useRef(null);
 
   useEffect(() => {
@@ -47,6 +49,9 @@ export const useSocket = () => {
 
     // Listen for notifications
     const handleNotification = (notification) => {
+      // Dispatch to Redux store to update notification count
+      dispatch(addNotification(notification));
+
       // Show toast notification
       const icon = {
         sale: '💰',

@@ -143,8 +143,8 @@ const BuyerDashboard = () => {
         <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} className="mb-8" />
 
         {/* Purchases */}
-        {activeTab === 'purchases' && (
-          completedOrders.length === 0 ? (
+        <div className={activeTab === 'purchases' ? 'block' : 'hidden'}>
+          {completedOrders.length === 0 ? (
             <EmptyState icon={HiShoppingBag} title="No purchases yet" description="Start building your art collection"
               action={<Link to="/marketplace" className="btn-primary">Explore Marketplace</Link>} />
           ) : (
@@ -178,12 +178,12 @@ const BuyerDashboard = () => {
                 </StaggerItem>
               ))}
             </StaggerContainer>
-          )
-        )}
+          )}
+        </div>
 
         {/* Wishlist */}
-        {activeTab === 'wishlist' && (
-          !wishlistItems?.length ? (
+        <div className={activeTab === 'wishlist' ? 'block' : 'hidden'}>
+          {!wishlistItems?.length ? (
             <EmptyState icon={HiHeart} title="Wishlist is empty" description="Save artworks you love for later"
               action={<Link to="/marketplace" className="btn-primary">Browse Art</Link>} />
           ) : (
@@ -209,12 +209,12 @@ const BuyerDashboard = () => {
                 );
               })}
             </div>
-          )
-        )}
+          )}
+        </div>
 
         {/* Following */}
-        {activeTab === 'following' && (
-          following.length === 0 ? (
+        <div className={activeTab === 'following' ? 'block' : 'hidden'}>
+          {following.length === 0 ? (
             <EmptyState icon={HiUserGroup} title="Not following anyone" description="Follow artists to see their latest work"
               action={<Link to="/marketplace" className="btn-primary">Discover Artists</Link>} />
           ) : (
@@ -232,12 +232,12 @@ const BuyerDashboard = () => {
                 </div>
               ))}
             </div>
-          )
-        )}
+          )}
+        </div>
 
         {/* Commissions */}
-        {activeTab === 'commissions' && (
-          commissions.length === 0 ? (
+        <div className={activeTab === 'commissions' ? 'block' : 'hidden'}>
+          {commissions.length === 0 ? (
             <EmptyState icon={HiChatBubbleLeftEllipsis} title="No commissions requested" description="Commission custom artworks from your favorite artists"
               action={<Link to="/marketplace" className="btn-primary">Browse Artists</Link>} />
           ) : (
@@ -270,8 +270,8 @@ const BuyerDashboard = () => {
                 </div>
               ))}
             </div>
-          )
-        )}
+          )}
+        </div>
 
         <div className="mt-12">
           <StudioSketchpad />
