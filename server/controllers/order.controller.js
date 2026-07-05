@@ -5,6 +5,8 @@ const Artwork = require('../models/Artwork');
 const Notification = require('../models/Notification');
 const ErrorResponse = require('../utils/ErrorResponse');
 const { sendPurchaseEmail, sendSaleNotificationEmail } = require('../utils/email');
+const Settings = require('../models/Settings');
+const { logActivity } = require('../utils/auditLogger');
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -32,8 +34,12 @@ exports.createOrder = async (req, res, next) => {
       return next(new ErrorResponse('You cannot purchase your own artwork', 400));
     }
 
+    // Fetch global settings to determine dynamic fee
+    let settings = await Settings.findOne({ key: 'global' });
+    const feePercent = settings ? settings.platformFeePercentage : 10;
+
     const amount = artwork.price;
-    const platformFee = Math.round(amount * 0.1); // 10% platform fee
+    const platformFee = Math.round(amount * (feePercent / 100)); 
     const artistEarnings = amount - platformFee;
 
     // Create Razorpay order
@@ -120,6 +126,9 @@ exports.verifyPayment = async (req, res, next) => {
     }
 
     await order.save();
+
+    // Log administrative action
+    await logActivity('artwork_purchased', `Artwork "${artwork.title}" purchased for ₹${order.amount} (platform fee: ₹${order.platformFee}, artist earnings: ₹${order.artistEarnings})`, order.buyer);
 
     // Create notification for artist
     const notification = await Notification.create({

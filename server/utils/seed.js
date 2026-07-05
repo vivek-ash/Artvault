@@ -36,7 +36,7 @@ const buyers = [
 ];
 
 // ── Admin ────────────────────────────────────────────────────────────────────
-const admin = { name: 'Admin User', email: 'admin@artvault.com', password: 'Admin@123', role: 'admin' };
+const admin = { name: 'Admin User', email: 'surajjash2005@gmail.com', password: 'Admin@123', role: 'admin' };
 
 // ── Artwork templates (120 artworks across all categories) ───────────────────
 const artworkTemplates = [

@@ -151,6 +151,18 @@ exports.deleteUser = async (req, res, next) => {
       return next(new ErrorResponse('Admin cannot delete their own account', 400));
     }
 
+    // Delete from Firebase Auth if it exists there
+    try {
+      const { getAuth } = require('firebase-admin/auth');
+      const firebaseUser = await getAuth().getUserByEmail(user.email);
+      if (firebaseUser) {
+        await getAuth().deleteUser(firebaseUser.uid);
+        console.log(`Deleted Firebase user: ${user.email}`);
+      }
+    } catch (firebaseErr) {
+      console.warn('Firebase user deletion warning:', firebaseErr.message);
+    }
+
     await User.findByIdAndDelete(req.params.id);
 
     res.status(200).json({

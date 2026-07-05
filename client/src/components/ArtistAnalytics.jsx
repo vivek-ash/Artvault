@@ -2,15 +2,14 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell,
+  ResponsiveContainer,
 } from 'recharts';
 import {
-  HiChartBar, HiEye, HiCurrencyRupee, HiShoppingBag, HiPhoto,
+  HiEye, HiCurrencyRupee, HiShoppingBag, HiPhoto,
 } from 'react-icons/hi2';
 import { useTheme } from '../context/ThemeContext';
 import api from '../utils/api';
-
-const COLORS = ['#c45d3e', '#2a7d6e', '#8b7ec8', '#e8856c', '#c9a84c', '#3a9d8c'];
+import { ArtworkCardSkeleton } from './ui';
 
 const ArtistAnalytics = () => {
   const { isDark } = useTheme();
@@ -35,17 +34,17 @@ const ArtistAnalytics = () => {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className={`h-64 rounded-xl animate-pulse ${isDark ? 'bg-gallery-darkCard' : 'bg-gallery-lightSurface'}`} />
+          <div key={i} className={`h-64 rounded-2xl animate-pulse ${isDark ? 'bg-gallery-darkCard' : 'bg-gallery-surface'}`} />
         ))}
       </div>
     );
   }
 
   const stats = [
-    { label: 'Total Revenue', value: `₹${(data?.totalRevenue || 0).toLocaleString('en-IN')}`, icon: HiCurrencyRupee, color: 'text-green-400' },
-    { label: 'Total Sales', value: data?.totalSales || 0, icon: HiShoppingBag, color: 'text-gallery-accent' },
-    { label: 'Total Views', value: (data?.totalViews || 0).toLocaleString(), icon: HiEye, color: 'text-blue-400' },
-    { label: 'Artworks', value: data?.totalArtworks || 0, icon: HiPhoto, color: 'text-purple-400' },
+    { label: 'Total Revenue', value: `₹${(data?.totalRevenue || 0).toLocaleString('en-IN')}`, icon: HiCurrencyRupee, color: 'text-brand-teal' },
+    { label: 'Total Sales', value: data?.totalSales || 0, icon: HiShoppingBag, color: 'text-brand-terracotta' },
+    { label: 'Total Views', value: (data?.totalViews || 0).toLocaleString(), icon: HiEye, color: 'text-brand-lavender' },
+    { label: 'Artworks', value: data?.totalArtworks || 0, icon: HiPhoto, color: 'text-brand-gold' },
   ];
 
   const chartData = data?.chartData || [];
@@ -61,11 +60,12 @@ const ArtistAnalytics = () => {
   ];
 
   const tooltipStyle = {
-    backgroundColor: isDark ? '#1e1e1e' : '#fff',
-    border: `1px solid ${isDark ? '#2e2e2e' : '#e5e7eb'}`,
-    borderRadius: '8px',
-    color: isDark ? '#faf8f5' : '#1a1a1a',
+    backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
+    border: `1px solid ${isDark ? '#2e2e2e' : '#e8e0d4'}`,
+    borderRadius: '12px',
+    color: isDark ? '#f5f0e8' : '#1e1e1e',
     fontSize: '12px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
   };
 
   return (
@@ -77,62 +77,95 @@ const ArtistAnalytics = () => {
             key={s.label}
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`p-5 rounded-xl border ${isDark ? 'bg-gallery-darkCard border-gallery-darkBorder' : 'bg-gallery-lightCard border-gallery-lightBorder'}`}
+            className={`p-5 rounded-2xl border ${
+              isDark 
+                ? 'bg-gallery-darkCard border-gallery-darkBorder shadow-dark-card' 
+                : 'bg-gallery-card border-gallery-border shadow-card'
+            }`}
           >
-            <s.icon className={`w-5 h-5 mb-2 ${s.color}`} />
-            <p className={`font-display text-2xl font-bold ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>{s.value}</p>
-            <p className={`text-xs mt-1 ${isDark ? 'text-gallery-textMuted' : 'text-gallery-textDarkMuted'}`}>{s.label}</p>
+            <div className="flex items-center justify-between mb-3">
+              <span className={`text-xs font-semibold uppercase tracking-wider ${
+                isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'
+              }`}>
+                {s.label}
+              </span>
+              <div className={`p-2 rounded-xl ${
+                isDark ? 'bg-white/5' : 'bg-black/5'
+              }`}>
+                <s.icon className={`w-5 h-5 ${s.color}`} />
+              </div>
+            </div>
+            <p className={`font-display text-2xl font-bold ${
+              isDark ? 'text-gallery-darkText' : 'text-gallery-text'
+            }`}>
+              {s.value}
+            </p>
           </motion.div>
         ))}
       </div>
 
-      {/* Revenue Chart */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className={`p-6 rounded-xl border ${isDark ? 'bg-gallery-darkCard border-gallery-darkBorder' : 'bg-gallery-lightCard border-gallery-lightBorder'}`}
-      >
-        <h3 className={`font-display font-semibold mb-6 ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-          Revenue Over Time
-        </h3>
-        <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={displayChartData}>
-            <defs>
-              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#c9a84c" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#c9a84c" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#2e2e2e' : '#e5e7eb'} />
-            <XAxis dataKey="name" stroke={isDark ? '#666' : '#999'} fontSize={12} />
-            <YAxis stroke={isDark ? '#666' : '#999'} fontSize={12} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Area type="monotone" dataKey="revenue" stroke="#c9a84c" strokeWidth={2} fill="url(#revenueGradient)" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </motion.div>
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Chart */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className={`p-6 rounded-2xl border ${
+            isDark 
+              ? 'bg-gallery-darkCard border-gallery-darkBorder shadow-dark-card' 
+              : 'bg-gallery-card border-gallery-border shadow-card'
+          }`}
+        >
+          <h3 className={`font-display font-semibold mb-6 ${
+            isDark ? 'text-gallery-darkText' : 'text-gallery-text'
+          }`}>
+            Revenue Over Time
+          </h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={displayChartData}>
+              <defs>
+                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#c9a84c" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#c9a84c" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#2e2e2e' : '#e8e0d4'} />
+              <XAxis dataKey="name" stroke={isDark ? '#8a8a8a' : '#7a7a7a'} fontSize={11} />
+              <YAxis stroke={isDark ? '#8a8a8a' : '#7a7a7a'} fontSize={11} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Area type="monotone" dataKey="revenue" stroke="#c9a84c" strokeWidth={2} fill="url(#revenueGradient)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </motion.div>
 
-      {/* Sales Chart */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className={`p-6 rounded-xl border ${isDark ? 'bg-gallery-darkCard border-gallery-darkBorder' : 'bg-gallery-lightCard border-gallery-lightBorder'}`}
-      >
-        <h3 className={`font-display font-semibold mb-6 ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
-          Sales Per Month
-        </h3>
-        <ResponsiveContainer width="100%" height={250}>
-          <BarChart data={displayChartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#2e2e2e' : '#e5e7eb'} />
-            <XAxis dataKey="name" stroke={isDark ? '#666' : '#999'} fontSize={12} />
-            <YAxis stroke={isDark ? '#666' : '#999'} fontSize={12} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Bar dataKey="sales" fill="#c9a84c" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </motion.div>
+        {/* Sales Chart */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className={`p-6 rounded-2xl border ${
+            isDark 
+              ? 'bg-gallery-darkCard border-gallery-darkBorder shadow-dark-card' 
+              : 'bg-gallery-card border-gallery-border shadow-card'
+          }`}
+        >
+          <h3 className={`font-display font-semibold mb-6 ${
+            isDark ? 'text-gallery-darkText' : 'text-gallery-text'
+          }`}>
+            Sales Per Month
+          </h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={displayChartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#2e2e2e' : '#e8e0d4'} />
+              <XAxis dataKey="name" stroke={isDark ? '#8a8a8a' : '#7a7a7a'} fontSize={11} />
+              <YAxis stroke={isDark ? '#8a8a8a' : '#7a7a7a'} fontSize={11} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Bar dataKey="sales" fill="#c45d3e" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </motion.div>
+      </div>
 
       {/* Top Artworks */}
       {data?.topArtworks?.length > 0 && (
@@ -140,26 +173,49 @@ const ArtistAnalytics = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className={`p-6 rounded-xl border ${isDark ? 'bg-gallery-darkCard border-gallery-darkBorder' : 'bg-gallery-lightCard border-gallery-lightBorder'}`}
+          className={`p-6 rounded-2xl border ${
+            isDark 
+              ? 'bg-gallery-darkCard border-gallery-darkBorder shadow-dark-card' 
+              : 'bg-gallery-card border-gallery-border shadow-card'
+          }`}
         >
-          <h3 className={`font-display font-semibold mb-4 ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
+          <h3 className={`font-display font-semibold mb-6 ${
+            isDark ? 'text-gallery-darkText' : 'text-gallery-text'
+          }`}>
             Top Selling Artworks
           </h3>
           <div className="space-y-3">
             {data.topArtworks.map((item, idx) => (
-              <div key={item._id} className={`flex items-center gap-4 p-3 rounded-lg ${isDark ? 'bg-gallery-darkSurface' : 'bg-gallery-lightSurface'}`}>
-                <span className="text-gallery-accent font-bold text-sm w-6">#{idx + 1}</span>
+              <div 
+                key={item._id} 
+                className={`flex items-center gap-4 p-4 rounded-xl border transition-all hover:scale-[1.01] ${
+                  isDark 
+                    ? 'bg-gallery-darkSurface border-gallery-darkBorder' 
+                    : 'bg-gallery-surface border-gallery-border'
+                }`}
+              >
+                <span className="text-brand-terracotta font-bold text-sm w-6">#{idx + 1}</span>
                 {item.artwork?.images?.thumbnail && (
-                  <img src={item.artwork.images.thumbnail} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                  <img src={item.artwork.images.thumbnail} alt="" className="w-12 h-12 rounded-xl object-cover border border-gallery-border dark-theme:border-gallery-darkBorder" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium truncate ${isDark ? 'text-gallery-text' : 'text-gallery-textDark'}`}>
+                  <p className={`text-sm font-semibold truncate ${
+                    isDark ? 'text-gallery-darkText' : 'text-gallery-text'
+                  }`}>
                     {item.artwork?.title || 'Untitled'}
                   </p>
+                  <p className={`text-xs mt-0.5 ${
+                    isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'
+                  }`}>
+                    by you · {new Date(item.createdAt).toLocaleDateString()}
+                  </p>
                 </div>
-                <span className="text-gallery-accent font-semibold text-sm">
-                  ₹{Number(item.artistEarnings).toLocaleString('en-IN')}
-                </span>
+                <div className="text-right">
+                  <span className="text-brand-teal font-bold text-sm">
+                    ₹{Number(item.artistEarnings).toLocaleString('en-IN')}
+                  </span>
+                  <p className="text-[10px] text-gallery-textMuted dark-theme:text-gallery-darkTextMuted">Earnings</p>
+                </div>
               </div>
             ))}
           </div>

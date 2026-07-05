@@ -32,3 +32,7 @@ coverage/
 # Misc
 *.tgz
 .cache/
+
+# Secrets
+*firebase-service-account.json
+

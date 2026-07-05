@@ -2,6 +2,7 @@ const Artwork = require('../models/Artwork');
 const User = require('../models/User');
 const ErrorResponse = require('../utils/ErrorResponse');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../middleware/upload');
+const { logActivity } = require('../utils/auditLogger');
 
 // @desc    Create new artwork
 // @route   POST /api/artworks
@@ -40,7 +41,7 @@ exports.createArtwork = async (req, res, next) => {
       totalEditions: isLimitedEdition ? totalEditions : null,
       saleType: saleType || 'fixed',
       resaleRoyalty: resaleRoyalty || 10,
-      status: status || 'draft',
+      status: status === 'published' ? 'pending' : (status || 'draft'),
     };
 
     // Handle auction fields
@@ -55,6 +56,9 @@ exports.createArtwork = async (req, res, next) => {
     }
 
     const artwork = await Artwork.create(artworkData);
+
+    // Log administrative event
+    await logActivity('artwork_created', `Artwork "${artwork.title}" created by artist ${req.user.name} (initial status: ${artwork.status})`, req.user._id);
 
     res.status(201).json({
       success: true,
@@ -258,10 +262,17 @@ exports.updateArtwork = async (req, res, next) => {
       req.body.auction = JSON.parse(req.body.auction);
     }
 
+    if (req.body.status === 'published' && req.user.role !== 'admin') {
+      req.body.status = 'pending';
+    }
+
     artwork = await Artwork.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
     });
+
+    // Log event
+    await logActivity('artwork_updated', `Artwork "${artwork.title}" updated (status: ${artwork.status})`, req.user._id);
 
     res.status(200).json({
       success: true,

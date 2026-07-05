@@ -32,6 +32,21 @@ export const loginUser = createAsyncThunk(
     }
   }
 );
+export const loginWithFirebase = createAsyncThunk(
+  'auth/loginWithFirebase',
+  async ({ idToken }, { rejectWithValue }) => {
+    try {
+      const { data } = await api.post('/api/auth/firebase-auth', { idToken });
+      if (data.token) localStorage.setItem('artvault_token', data.token);
+      return data.user;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.error || error.message || 'Firebase login failed'
+      );
+    }
+  }
+);
+
 
 export const logoutUser = createAsyncThunk(
   'auth/logoutUser',
@@ -124,6 +139,21 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      })
+      // ── Firebase Login ──────────────────────────────────────────────────
+      .addCase(loginWithFirebase.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(loginWithFirebase.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload;
+        state.isAuthenticated = true;
+        state.error = null;
+      })
+      .addCase(loginWithFirebase.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
       })

@@ -1,6 +1,9 @@
 const User = require('../models/User');
 const ErrorResponse = require('../utils/ErrorResponse');
 const { sendWelcomeEmail } = require('../utils/email');
+const admin = require('firebase-admin');
+const { getAuth } = require('firebase-admin/auth');
+const { logActivity } = require('../utils/auditLogger');
 
 // Helper: send JWT token in httpOnly cookie + response body
 const sendTokenResponse = (user, statusCode, res) => {
@@ -57,6 +60,9 @@ exports.register = async (req, res, next) => {
       role: role || 'buyer',
     });
 
+    // Log activity
+    await logActivity('user_registered', `User ${user.name} registered as a ${user.role} (${user.email})`, user._id);
+
     // Send welcome email (non-blocking)
     sendWelcomeEmail(user.email, user.name, user.role);
 
@@ -96,6 +102,9 @@ exports.login = async (req, res, next) => {
     if (!isMatch) {
       return next(new ErrorResponse('Invalid credentials', 401));
     }
+
+    // Log activity
+    await logActivity('user_login', `User ${user.name} logged in (${user.email})`, user._id);
 
     sendTokenResponse(user, 200, res);
   } catch (err) {
@@ -172,6 +181,198 @@ exports.updateProfile = async (req, res, next) => {
     res.status(200).json({
       success: true,
       user,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Authenticate with Firebase ID Token (Login/Register fallback)
+// @route   POST /api/auth/firebase-auth
+// @access  Public
+exports.firebaseAuth = async (req, res, next) => {
+  try {
+    const { idToken, name, role } = req.body;
+
+    if (!idToken) {
+      return next(new ErrorResponse('Please provide a Firebase ID token', 400));
+    }
+
+    // Verify token using Firebase Admin SDK
+    let decodedToken;
+    try {
+      decodedToken = await getAuth().verifyIdToken(idToken);
+    } catch (err) {
+      console.error('Firebase verifyIdToken error inside firebaseAuth:', err);
+      return next(new ErrorResponse(`Invalid or expired Firebase ID token: ${err.message}`, 401));
+    }
+
+    const { email, email_verified, name: decodedName } = decodedToken;
+
+    // Check if email is verified
+    if (!email_verified) {
+      return next(new ErrorResponse('Please verify your email address before logging in.', 401));
+    }
+
+    // Check if user already exists in MongoDB
+    let user = await User.findOne({ email });
+
+    if (user) {
+      // Check if account is suspended
+      if (user.isSuspended) {
+        return next(new ErrorResponse('Your account has been suspended. Please contact support.', 403));
+      }
+      // Log event
+      await logActivity('user_login', `User ${user.name} logged in via Firebase (${user.email})`, user._id);
+      // Log in existing user
+      return sendTokenResponse(user, 200, res);
+    }
+
+    // Register new user
+    // Only allow 'artist' or 'buyer' for new accounts
+    const targetRole = role || 'buyer';
+    if (!['artist', 'buyer'].includes(targetRole)) {
+      return next(new ErrorResponse('Invalid role specified', 400));
+    }
+
+    // Generate a secure random password for DB requirements (user will login with Firebase anyway)
+    const randomPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10) + 'A1!';
+
+    user = await User.create({
+      name: name || decodedName || email.split('@')[0],
+      email,
+      password: randomPassword,
+      role: targetRole,
+      isVerifiedArtist: false // New artists start unverified
+    });
+
+    // Log event
+    await logActivity('user_registered', `User ${user.name} registered via Firebase Auth as ${user.role} (${user.email})`, user._id);
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail(user.email, user.name, user.role);
+
+    sendTokenResponse(user, 201, res);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Register a new user in MongoDB authenticated by Firebase (email verification pending)
+// @route   POST /api/auth/firebase-register
+// @access  Public
+exports.firebaseRegister = async (req, res, next) => {
+  try {
+    const { idToken, name, role } = req.body;
+
+    if (!idToken || !name) {
+      return next(new ErrorResponse('Please provide a Firebase ID token and name', 400));
+    }
+
+    // Verify token using Firebase Admin SDK
+    let decodedToken;
+    try {
+      decodedToken = await getAuth().verifyIdToken(idToken);
+    } catch (err) {
+      console.error('Firebase verifyIdToken error inside firebaseRegister:', err);
+      return next(new ErrorResponse(`Invalid or expired Firebase ID token: ${err.message}`, 401));
+    }
+
+    const { email } = decodedToken;
+
+    // Check if user already exists in MongoDB
+    let user = await User.findOne({ email });
+
+    if (user) {
+      // Re-link: update name/role and succeed
+      if (name) user.name = name;
+      if (role && ['artist', 'buyer'].includes(role)) user.role = role;
+      await user.save();
+
+      // Log event
+      await logActivity('user_relinked', `User ${user.name} re-linked account profile (${user.email})`, user._id);
+
+      return res.status(201).json({
+        success: true,
+        message: 'Registration successful. Account re-linked.',
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        }
+      });
+    }
+
+    // Register new user
+    const targetRole = role || 'buyer';
+    if (!['artist', 'buyer'].includes(targetRole)) {
+      return next(new ErrorResponse('Invalid role specified', 400));
+    }
+
+    // Generate a secure random password for DB requirements
+    const randomPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10) + 'A1!';
+
+    user = await User.create({
+      name,
+      email,
+      password: randomPassword,
+      role: targetRole,
+      isVerifiedArtist: false
+    });
+
+    // Log event
+    await logActivity('user_registered', `User ${user.name} registered via Firebase as ${user.role} (${user.email})`, user._id);
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail(user.email, user.name, user.role);
+
+    res.status(201).json({
+      success: true,
+      message: 'Registration successful. Verification email sent. Please check your inbox.',
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Check if email exists in database
+// @route   GET /api/auth/check-email
+// @access  Public
+exports.checkEmail = async (req, res, next) => {
+  try {
+    const { email } = req.query;
+    if (!email) {
+      return next(new ErrorResponse('Please provide an email', 400));
+    }
+    
+    const dbUser = await User.findOne({ email });
+    let existsInFirebase = false;
+
+    if (dbUser) {
+      try {
+        const firebaseUser = await getAuth().getUserByEmail(email);
+        existsInFirebase = !!firebaseUser;
+      } catch (firebaseErr) {
+        if (firebaseErr.code === 'auth/user-not-found') {
+          existsInFirebase = false;
+        } else {
+          console.error('Firebase Admin check error:', firebaseErr.message);
+          existsInFirebase = true; // default fallback
+        }
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      exists: !!dbUser,
+      existsInFirebase
     });
   } catch (err) {
     next(err);

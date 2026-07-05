@@ -6,7 +6,7 @@ const Tabs = ({ tabs, activeTab, onChange, className = '' }) => {
   const { isDark } = useTheme();
 
   return (
-    <div className={`flex gap-1 p-1 rounded-2xl ${isDark ? 'bg-gallery-darkSurface' : 'bg-gallery-surface'} ${className}`}>
+    <div className={`flex gap-1 p-1 rounded-2xl overflow-x-auto scrollbar-hide ${isDark ? 'bg-gallery-darkSurface' : 'bg-gallery-surface'} ${className}`}>
       {tabs.map((tab) => (
         <button
           key={tab.id}

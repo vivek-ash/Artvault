@@ -27,6 +27,9 @@ const wishlistRoutes = require('./routes/wishlist.routes');
 // Connect to database
 connectDB();
 
+// Initialize Firebase Admin
+require('./config/firebase');
+
 const app = express();
 
 // --------------- Middleware ---------------

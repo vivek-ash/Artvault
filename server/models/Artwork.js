@@ -126,7 +126,7 @@ const artworkSchema = new mongoose.Schema(
     // Artwork status
     status: {
       type: String,
-      enum: ['draft', 'published', 'sold_out', 'flagged', 'archived'],
+      enum: ['draft', 'pending', 'published', 'sold_out', 'flagged', 'archived'],
       default: 'draft',
     },
     // Resale royalty percentage (0-50%)

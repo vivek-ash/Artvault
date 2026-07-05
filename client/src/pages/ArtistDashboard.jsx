@@ -258,13 +258,28 @@ const ArtistDashboard = () => {
                         </button>
                       </div>
                     </div>
-                    <div className="p-4">
-                      <p className="font-semibold text-sm truncate">{art.title}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-brand-terracotta font-bold text-sm">₹{art.price?.toLocaleString()}</span>
-                        <span className={`text-xs ${isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'}`}>
-                          <HiEye className="inline w-3.5 h-3.5 mr-0.5" />{art.viewCount || 0}
-                        </span>
+                    <div className="p-4 flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm truncate">{art.title}</p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-brand-terracotta font-bold text-sm">₹{art.price?.toLocaleString()}</span>
+                          <span className={`text-xs ${isDark ? 'text-gallery-darkTextMuted' : 'text-gallery-textMuted'}`}>
+                            <HiEye className="inline w-3.5 h-3.5 mr-0.5" />{art.viewCount || 0}
+                          </span>
+                        </div>
+                      </div>
+                      {/* Mobile action strip */}
+                      <div className="flex md:hidden items-center gap-1.5 flex-shrink-0">
+                        <button onClick={() => openEdit(art)} className={`p-2 rounded-xl border transition-colors ${
+                          isDark ? 'bg-white/5 border-gallery-darkBorder text-brand-terracotta' : 'bg-black/5 border-gallery-border text-brand-terracotta'
+                        }`}>
+                          <HiPencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDelete(art._id)} className={`p-2 rounded-xl border transition-colors ${
+                          isDark ? 'bg-white/5 border-gallery-darkBorder text-red-500' : 'bg-black/5 border-gallery-border text-red-500'
+                        }`}>
+                          <HiTrash className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   </div>

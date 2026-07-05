@@ -13,8 +13,11 @@ import {
 } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
-import { registerUser, clearError } from '../features/auth/authSlice';
+import { clearError } from '../features/auth/authSlice';
 import { PageTransition } from '../components/ui';
+import { auth } from '../config/firebase';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import api from '../utils/api';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -25,6 +28,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validationError, setValidationError] = useState('');
+  const [firebaseLoading, setFirebaseLoading] = useState(false);
 
   const { isDark } = useTheme();
   const dispatch = useDispatch();
@@ -67,7 +71,7 @@ const Register = () => {
     };
   }, [dispatch]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setValidationError('');
 
@@ -81,7 +85,41 @@ const Register = () => {
       return;
     }
 
-    dispatch(registerUser({ name, email, password, role }));
+    setFirebaseLoading(true);
+
+    try {
+      // 1. Create user in Firebase
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+
+      // 2. Send verification email
+      await sendEmailVerification(firebaseUser);
+
+      // 3. Obtain ID token
+      const idToken = await firebaseUser.getIdToken();
+
+      // 4. Register in backend MongoDB
+      await api.post('/api/auth/firebase-register', {
+        idToken,
+        name,
+        role
+      });
+
+      toast.success('Registration successful! Verification email sent. Please check your inbox.', {
+        duration: 8000
+      });
+
+      navigate('/login');
+    } catch (err) {
+      console.error(err);
+      let errMsg = err.response?.data?.error || err.message || 'Registration failed';
+      if (err.code === 'auth/email-already-in-use') {
+        errMsg = 'A user with this email already exists in Firebase.';
+      }
+      toast.error(errMsg);
+    } finally {
+      setFirebaseLoading(false);
+    }
   };
 
   const mutedText = isDark
@@ -261,13 +299,13 @@ const Register = () => {
             {/* Submit button */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || firebaseLoading}
               className="btn-primary w-full mt-4 flex items-center justify-center gap-2"
             >
-              {isLoading && (
+              {(isLoading || firebaseLoading) && (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               )}
-              {isLoading ? 'Creating Account...' : 'Create Account'}
+              {(isLoading || firebaseLoading) ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
 

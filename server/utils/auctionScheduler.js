@@ -2,6 +2,8 @@ const Artwork = require('../models/Artwork');
 const Order = require('../models/Order');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const Settings = require('../models/Settings');
+const { logActivity } = require('./auditLogger');
 
 /**
  * Periodically checks for ended auctions and processes the winners
@@ -33,9 +35,12 @@ const startAuctionScheduler = (app) => {
             continue;
           }
 
-          // Calculate fees
+          // Calculate fees dynamically
+          let settings = await Settings.findOne({ key: 'global' });
+          const feePercent = settings ? settings.platformFeePercentage : 10;
+
           const amount = currentBid;
-          const platformFee = Math.round(amount * 0.1);
+          const platformFee = Math.round(amount * (feePercent / 100));
           const artistEarnings = amount - platformFee;
 
           // Create a pending order for the winning bidder
@@ -55,6 +60,9 @@ const startAuctionScheduler = (app) => {
           // Mark artwork as sold out
           artwork.status = 'sold_out';
           await artwork.save();
+
+          // Log administrative event
+          await logActivity('auction_resolved', `Auction for "${artwork.title}" ended. Winner: ${winner.name} for ₹${amount} (platform fee: ₹${platformFee})`, winner._id);
 
           // Notify winner
           const winnerNotif = await Notification.create({

@@ -23,6 +23,7 @@ A full-stack MERN web application enabling artists to upload, showcase, and secu
 - **Marketplace Discovery** — Search, filter by category/price/style/color, sort & pagination
 - **Secure Payments** — Razorpay integration with cryptographic signature verification
 - **Order Management** — Full order lifecycle tracking with download management
+- **🔒 Firebase Auth & Security Gating** — Dynamic fallback auth logic (local DB validation + Firebase client SDK) with strict email verification gating, forgot password flows, and automated credentials re-linking on deletions.
 
 ### Unique Differentiators
 1. **Watermarked Previews** — Full-res art unlocked only after payment
@@ -36,11 +37,13 @@ A full-stack MERN web application enabling artists to upload, showcase, and secu
 9. **Follow System + Activity Feed** — Followers/following with real-time new follower notifications
 10. **Real-time Notifications (Socket.io)** — New sale, follower, bid outbid, commission status changes
 11. **Search/Filter** — By category, art style, price range, dominant color
-12. **Admin Moderation Dashboard** — User management (suspend/unsuspend), artist verification tags, artwork moderation, platform stats
+12. **Admin Moderation & Approvals Dashboard** — Universal user details profiles modal, artwork approvals moderation queue with dynamic fee calculations, warnings notices system, and report dismiss actions
 13. **Three User Roles** — Artist, Buyer, Admin with role-based access control (including cross-role purchases and wishlist support for artists)
 14. **Interactive Studio Sketchpad** — Draw and download custom commission drafts/concept doodles directly in the dashboard
 15. **Creative Aura Identity** — Morphing ambient liquid gradient visualization reflecting the user's artistic personality
 16. **Artistic Watercolor Cursor & Spotlight Ambient Glow Backdrop** — Premium fluid paint droplet trailing effects and slowly flowing spotlight blobs
+17. **📜 Platform Activity Audit Log** — Live-audit administrative feed documenting logins, registrations, purchases, config updates, warnings, and moderations chronological trails.
+18. **⚙️ Dynamic Platform split settings** — Configurable fee adjustments that update platform payout distributions on the fly.
 
 ---
 
