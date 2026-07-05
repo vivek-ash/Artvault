@@ -89,6 +89,11 @@ const Register = () => {
 
     try {
       // 1. Create user in Firebase
+      if (!auth) {
+        toast.error('Firebase Auth is not configured. Cannot complete registration.');
+        setFirebaseLoading(false);
+        return;
+      }
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 

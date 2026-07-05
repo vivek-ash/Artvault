@@ -83,6 +83,11 @@ const Login = () => {
         }
 
         // 2. Fallback to Firebase Authentication
+        if (!auth) {
+          toast.error(`Local login failed: ${err.message || 'Invalid credentials'}. (Firebase client config not set).`);
+          setFirebaseLoading(false);
+          return;
+        }
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const firebaseUser = userCredential.user;
 
@@ -124,6 +129,11 @@ const Login = () => {
       return;
     }
 
+    if (!auth) {
+      toast.error('Firebase Auth is not configured. Cannot send password reset email.');
+      setForgotLoading(false);
+      return;
+    }
     setForgotLoading(true);
     try {
       await sendPasswordResetEmail(auth, forgotEmail);
