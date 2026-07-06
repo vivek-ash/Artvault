@@ -233,7 +233,7 @@ exports.firebaseAuth = async (req, res, next) => {
 
     // Register new user
     // Only allow 'artist' or 'buyer' for new accounts
-    const targetRole = role || 'buyer';
+    const targetRole = decodedToken.role || role || 'buyer';
     if (!['artist', 'buyer'].includes(targetRole)) {
       return next(new ErrorResponse('Invalid role specified', 400));
     }
@@ -315,37 +315,25 @@ exports.firebaseRegister = async (req, res, next) => {
       });
     }
 
-    // Register new user
+    // Register new user (Pre-registration)
     const targetRole = role || 'buyer';
     if (!['artist', 'buyer'].includes(targetRole)) {
       return next(new ErrorResponse('Invalid role specified', 400));
     }
 
-    // Generate a secure random password for DB requirements
-    const randomPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10) + 'A1!';
+    // Set custom user claims in Firebase Auth so the role is cryptographically signed into their identity
+    const { uid } = decodedToken;
+    await getAuth().setCustomUserClaims(uid, { role: targetRole });
 
-    user = await User.create({
-      name,
-      email,
-      password: randomPassword,
-      role: targetRole,
-      isVerifiedArtist: false
-    });
+    // Log pre-registration event
+    await logActivity('user_pre_registered', `User ${email} initialized Firebase claims as ${targetRole}`, null);
 
-    // Log event
-    await logActivity('user_registered', `User ${user.name} registered via Firebase as ${user.role} (${user.email})`, user._id);
-
-    // Send welcome email (non-blocking)
-    sendWelcomeEmail(user.email, user.name, user.role);
-
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      message: 'Registration successful. Verification email sent. Please check your inbox.',
+      message: 'Registration initialized successfully. Verification email sent. Please check your inbox.',
       user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
+        email,
+        role: targetRole
       }
     });
   } catch (err) {
@@ -366,16 +354,13 @@ exports.checkEmail = async (req, res, next) => {
     const dbUser = await User.findOne({ email });
     let existsInFirebase = false;
 
-    if (dbUser) {
+    if (admin.getApps().length > 0) {
       try {
         const firebaseUser = await getAuth().getUserByEmail(email);
         existsInFirebase = !!firebaseUser;
       } catch (firebaseErr) {
-        if (firebaseErr.code === 'auth/user-not-found') {
-          existsInFirebase = false;
-        } else {
+        if (firebaseErr.code !== 'auth/user-not-found') {
           console.error('Firebase Admin check error:', firebaseErr.message);
-          existsInFirebase = true; // default fallback
         }
       }
     }

@@ -131,6 +131,21 @@ const AdminDashboard = () => {
     }
   };
 
+  const deleteUser = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this user permanently? This will purge all their uploaded artworks and profile data from everywhere.')) return;
+    try {
+      await api.delete(`/api/users/${userId}`);
+      setUsers(prev => prev.filter(u => u._id !== userId));
+      toast.success('User and all their related assets deleted successfully');
+      fetchStats();
+      fetchAuditLogs();
+      fetchArtworks();
+      fetchPendingArtworks();
+    } catch (err) {
+      toast.error('Failed to delete user');
+    }
+  };
+
   const deleteArtwork = async (artworkId) => {
     if (!window.confirm('Are you sure you want to remove this artwork permanently?')) return;
     try {
@@ -357,6 +372,12 @@ const AdminDashboard = () => {
                       className={`btn-ghost text-xs ${u.isSuspended ? 'text-brand-teal' : 'text-red-400'}`}
                     >
                       {u.isSuspended ? <><HiCheckCircle className="w-4 h-4" /> Unsuspend</> : <><HiNoSymbol className="w-4 h-4" /> Suspend</>}
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); deleteUser(u._id); }}
+                      className="btn-ghost text-xs text-red-500"
+                    >
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -658,6 +679,15 @@ const AdminDashboard = () => {
                 className={`btn-primary text-xs !py-2 !px-4 ${selectedUserForModal.isSuspended ? 'bg-brand-teal' : 'bg-red-500'}`}
               >
                 {selectedUserForModal.isSuspended ? 'Unsuspend Account' : 'Suspend Account'}
+              </button>
+              <button 
+                onClick={() => {
+                  setUserModalOpen(false);
+                  deleteUser(selectedUserForModal._id);
+                }}
+                className="btn-secondary text-xs !py-2 !px-4 text-red-500 hover:!border-red-500"
+              >
+                Delete Account
               </button>
             </div>
           </div>

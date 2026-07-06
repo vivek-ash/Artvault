@@ -70,7 +70,7 @@ const Login = () => {
         // Check if user is registered in MongoDB before attempting Firebase
         const { data } = await api.get(`/api/auth/check-email?email=${encodeURIComponent(email)}`);
         
-        if (!data.exists) {
+        if (!data.exists && !data.existsInFirebase) {
           toast.error('User not found. Please register first.');
           setFirebaseLoading(false);
           return;

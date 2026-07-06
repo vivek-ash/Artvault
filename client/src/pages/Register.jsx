@@ -16,7 +16,7 @@ import { useTheme } from '../context/ThemeContext';
 import { clearError } from '../features/auth/authSlice';
 import { PageTransition } from '../components/ui';
 import { auth } from '../config/firebase';
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
 import api from '../utils/api';
 
 const Register = () => {
@@ -97,13 +97,16 @@ const Register = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
-      // 2. Send verification email
+      // 2. Set user display name inside Firebase Profile
+      await updateProfile(firebaseUser, { displayName: name });
+
+      // 3. Send verification email
       await sendEmailVerification(firebaseUser);
 
-      // 3. Obtain ID token
+      // 4. Obtain ID token
       const idToken = await firebaseUser.getIdToken();
 
-      // 4. Register in backend MongoDB
+      // 5. Setup custom user claims in backend
       await api.post('/api/auth/firebase-register', {
         idToken,
         name,

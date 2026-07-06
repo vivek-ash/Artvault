@@ -163,11 +163,33 @@ exports.deleteUser = async (req, res, next) => {
       console.warn('Firebase user deletion warning:', firebaseErr.message);
     }
 
+    // Cascade delete all assets & references from everywhere
+    const Artwork = require('../models/Artwork');
+    const Commission = require('../models/Commission');
+    const Notification = require('../models/Notification');
+    const { logActivity } = require('../utils/auditLogger');
+
+    // Delete artworks uploaded by user
+    await Artwork.deleteMany({ artist: req.params.id });
+
+    // Delete commissions involving user
+    await Commission.deleteMany({ $or: [{ buyer: req.params.id }, { artist: req.params.id }] });
+
+    // Delete notifications sent to or related to user
+    await Notification.deleteMany({ $or: [{ recipient: req.params.id }, { relatedUser: req.params.id }] });
+
+    // Clean up follow arrays in other users' documents
+    await User.updateMany({}, { $pull: { followers: req.params.id, following: req.params.id } });
+
+    // Log the administrative action in the audit logs
+    await logActivity('user_deleted', `Admin deleted user account ${user.name} (${user.email}) and purged all their data`, req.user.id);
+
+    // Finally, remove the local User document itself
     await User.findByIdAndDelete(req.params.id);
 
     res.status(200).json({
       success: true,
-      message: 'User deleted successfully',
+      message: 'User and all related assets deleted successfully',
     });
   } catch (err) {
     if (err.kind === 'ObjectId') {
