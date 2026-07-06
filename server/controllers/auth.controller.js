@@ -284,9 +284,14 @@ exports.firebaseRegister = async (req, res, next) => {
     let user = await User.findOne({ email });
 
     if (user) {
-      // Re-link: update name/role and succeed
+      // Re-link: update name/role and randomize password to migrate completely to Firebase
       if (name) user.name = name;
       if (role && ['artist', 'buyer'].includes(role)) user.role = role;
+      
+      // Randomize password to invalidate local MongoDB login credentials
+      const randomPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10) + 'A1!';
+      user.password = randomPassword;
+      
       await user.save();
 
       // Log event
