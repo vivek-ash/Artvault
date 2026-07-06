@@ -199,7 +199,7 @@ exports.firebaseAuth = async (req, res, next) => {
     }
 
     // Verify token using Firebase Admin SDK
-    if (admin.apps.length === 0) {
+    if (admin.getApps().length === 0) {
       return next(new ErrorResponse('Firebase Admin SDK is not initialized on the backend. Please add FIREBASE_PROJECT_ID or FIREBASE_SERVICE_ACCOUNT_JSON to your backend Render Environment Variables.', 500));
     }
     let decodedToken;
@@ -273,7 +273,7 @@ exports.firebaseRegister = async (req, res, next) => {
     }
 
     // Verify token using Firebase Admin SDK
-    if (admin.apps.length === 0) {
+    if (admin.getApps().length === 0) {
       return next(new ErrorResponse('Firebase Admin SDK is not initialized on the backend. Please add FIREBASE_PROJECT_ID or FIREBASE_SERVICE_ACCOUNT_JSON to your backend Render Environment Variables.', 500));
     }
     let decodedToken;
