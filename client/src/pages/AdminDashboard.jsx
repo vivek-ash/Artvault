@@ -44,12 +44,24 @@ const AdminDashboard = () => {
   const [selectedArtworkForModal, setSelectedArtworkForModal] = useState(null);
 
   useEffect(() => {
-    fetchStats();
-    fetchUsers();
-    fetchArtworks();
-    fetchPendingArtworks();
-    fetchSettings();
-    fetchAuditLogs();
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true);
+        await Promise.all([
+          fetchStats(),
+          fetchUsers(),
+          fetchArtworks(),
+          fetchPendingArtworks(),
+          fetchSettings(),
+          fetchAuditLogs()
+        ]);
+      } catch (err) {
+        console.error('Error loading admin dashboard stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadDashboardData();
   }, []);
 
   const fetchStats = async () => {

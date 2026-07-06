@@ -199,4 +199,10 @@ artworkSchema.pre('save', function (next) {
   next();
 });
 
+// Database Indexes for optimized query execution
+artworkSchema.index({ artist: 1 });
+artworkSchema.index({ status: 1 });
+artworkSchema.index({ category: 1 });
+artworkSchema.index({ price: 1 });
+
 module.exports = mongoose.model('Artwork', artworkSchema);

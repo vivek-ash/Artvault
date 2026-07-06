@@ -10,20 +10,20 @@ import { getMe } from './features/auth/authSlice';
 // Layouts
 import MainLayout from './layouts/MainLayout';
 
-// Pages - Code Splitted via Lazy Loading
-const Home = lazy(() => import('./pages/Home'));
-const Marketplace = lazy(() => import('./pages/Marketplace'));
-const ArtworkDetail = lazy(() => import('./pages/ArtworkDetail'));
-const ArtistProfile = lazy(() => import('./pages/ArtistProfile'));
-const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
-const Profile = lazy(() => import('./pages/Profile'));
-const ArtistDashboard = lazy(() => import('./pages/ArtistDashboard'));
-const BuyerDashboard = lazy(() => import('./pages/BuyerDashboard'));
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
-const Notifications = lazy(() => import('./pages/Notifications'));
-const Cart = lazy(() => import('./pages/Cart'));
-const NotFound = lazy(() => import('./pages/NotFound'));
+// Core Pages (Static imports to avoid bundle-loading delays on route changes)
+import Home from './pages/Home';
+import Marketplace from './pages/Marketplace';
+import ArtworkDetail from './pages/ArtworkDetail';
+import ArtistProfile from './pages/ArtistProfile';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Profile from './pages/Profile';
+import ArtistDashboard from './pages/ArtistDashboard';
+import BuyerDashboard from './pages/BuyerDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import Notifications from './pages/Notifications';
+import Cart from './pages/Cart';
+import NotFound from './pages/NotFound';
 
 // Components
 import ProtectedRoute from './components/ProtectedRoute';
